@@ -15,8 +15,9 @@ const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
-	entryPoints: ["main.ts"],
+	entryPoints: ["main.tsx"],
 	bundle: true,
+	platform: "node",
 	external: [
 		"obsidian",
 		"electron",
@@ -31,7 +32,8 @@ const context = await esbuild.context({
 		"@lezer/common",
 		"@lezer/highlight",
 		"@lezer/lr",
-		...builtins],
+		...builtins,
+	],
 	format: "cjs",
 	target: "es2018",
 	logLevel: "info",
@@ -39,6 +41,10 @@ const context = await esbuild.context({
 	treeShaking: true,
 	outfile: "main.js",
 	minify: prod,
+	define: {
+		'global': 'globalThis',
+		'process.env.NODE_ENV': prod ? '"production"' : '"development"',
+	},
 });
 
 if (prod) {

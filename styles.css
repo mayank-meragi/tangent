@@ -6,3 +6,227 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.tangent-chat-messages {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	flex: 1 1 auto;
+	max-height: none;
+	background: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 0;
+	overflow-y: auto;
+	padding: 4px;
+}
+.tangent-chat-message {
+	margin-bottom: 1px;
+	padding: 2px 6px;
+	background: var(--background-primary-alt);
+	border-radius: 3px;
+	word-break: break-word;
+	font-size: 0.8em;
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
+}
+.tangent-chat-message.streaming {
+	background: none;
+	color: var(--text-normal);
+	border: none;
+	box-shadow: none;
+}
+.tangent-chat-message.user {
+	align-self: flex-end;
+	background: var(--background-primary-alt);
+	color: var(--text-normal);
+	border-radius: 8px;
+	padding: 1px 6px;
+	margin: 1px 0 1px auto;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+	max-width: 70%;
+	font-weight: 500;
+	font-size: 0.8em;
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
+}
+.tangent-chat-message.ai {
+	background: none;
+	color: var(--text-normal);
+	border-radius: 0;
+	padding: 4px 8px;
+	margin: 1px auto 1px auto;
+	box-shadow: none;
+	width: 100%;
+	max-width: 100%;
+	font-weight: 400;
+	align-self: center;
+	text-align: left;
+	font-size: 0.8em;
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
+}
+.tangent-chat-input-container {
+	background: var(--background-secondary-alt);
+	display: flex;
+	align-items: center;
+	padding: 3px;
+	position: static;
+	bottom: unset;
+	z-index: 1;
+}
+.tangent-chat-input {
+	width: 100%;
+	padding: 2px 6px 12px 6px;
+	border-radius: 3px;
+	border: 1px solid var(--background-modifier-border);
+	font-size: 0.75em;
+	margin-right: 4px;
+	box-sizing: border-box;
+}
+.tangent-chat-send-btn {
+	padding: 2px 8px;
+	border-radius: 3px;
+	border: none;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-weight: bold;
+	cursor: pointer;
+	font-size: 0.75em;
+}
+.tangent-chat-send-btn:hover {
+	background: var(--interactive-accent-hover);
+}
+.tangent-model-select {
+	width: 60px;
+	min-width: 45px;
+	max-width: 80px;
+	font-size: 0.65em;
+	padding: 1px 3px;
+	margin-right: 4px;
+	border-radius: 2px;
+}
+.tangent-chat-panel-root {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding-bottom: 48px; /* Add space for status bar */
+}
+
+.tangent-chat-spinner {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: 0 auto 8px auto;
+	height: 24px;
+}
+.tangent-chat-spinner-icon {
+	border: 3px solid #e0e0e0;
+	border-top: 3px solid var(--interactive-accent, #888);
+	border-radius: 50%;
+	width: 20px;
+	height: 20px;
+	animation: tangent-spin 1s linear infinite;
+}
+@keyframes tangent-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+.tangent-chat-tool-call, .tangent-chat-tool-result {
+	background: var(--background-primary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 2px 6px;
+	margin: 2px 0 2px 0;
+	box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+	position: relative;
+	font-size: 0.75em;
+	transition: background 0.2s, border 0.2s;
+	max-width: 250px;
+	width: fit-content;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	user-select: text;
+	-webkit-user-select: text;
+}
+.tangent-chat-tool-call span, .tangent-chat-tool-result span {
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	font-size: 0.75em;
+}
+.tangent-chat-tool-call span::before {
+	content: '🛠️';
+	margin-right: 2px;
+	font-size: 0.8em;
+}
+.tangent-chat-tool-result span::before {
+	content: '✅';
+	margin-right: 2px;
+	font-size: 0.8em;
+}
+.tangent-chat-tool-call pre, .tangent-chat-tool-result pre {
+	background: var(--background-secondary-alt);
+	border-radius: 3px;
+	padding: 3px;
+	margin-top: 3px;
+	font-size: 0.7em;
+	color: var(--text-muted);
+	overflow-x: auto;
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
+}
+.tangent-chat-tool-call:hover, .tangent-chat-tool-result:hover {
+	background: var(--background-secondary-alt);
+	border-color: var(--interactive-accent);
+}
+.tangent-chat-tool-call .toggle, .tangent-chat-tool-result .toggle {
+	cursor: pointer;
+	color: var(--interactive-accent);
+	font-size: 0.9em;
+	margin-right: 4px;
+	user-select: none;
+	-webkit-user-select: none;
+	transition: color 0.2s;
+}
+.tangent-chat-tool-call .toggle:hover, .tangent-chat-tool-result .toggle:hover {
+	color: var(--interactive-accent-hover);
+}
+
+/* File context display */
+.tangent-file-context {
+	padding: 8px 12px;
+	background-color: var(--background-secondary);
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: 12px;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tangent-file-context-remove {
+	margin-left: auto;
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 3px;
+	font-size: 14px;
+	font-weight: bold;
+	opacity: 0.7;
+	transition: opacity 0.2s, background-color 0.2s;
+}
+
+.tangent-file-context-remove:hover {
+	opacity: 1;
+	background-color: var(--background-modifier-hover);
+}
