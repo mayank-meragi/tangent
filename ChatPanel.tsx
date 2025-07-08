@@ -4,12 +4,12 @@ import { MODEL_CONFIGS, ModelConfig } from './modelConfigs';
 import { useChatMessages, ChatMessagesProvider } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
 import { SYSTEM_PROMPT } from './systemPrompt';
-import { HumanMessage, AIMessage, ToolMessage, SystemMessage } from '@langchain/core/messages';
 import { setIcon } from 'obsidian';
+import { PendingToolCall, ToolConfirmationResult, readMemory } from './tools';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[]) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>) => Promise<void>;
   app: any; // Obsidian App instance
 }
 
@@ -17,7 +17,8 @@ export interface ChatPanelProps {
 type ChatMessage =
   | { role: 'user' | 'ai'; content: string; streaming?: boolean; timestamp?: string }
   | { role: 'tool-call'; toolName: string; toolArgs: any }
-  | { role: 'tool-result'; toolName: string; result: any };
+  | { role: 'tool-result'; toolName: string; result: any }
+  | { role: 'thinking'; content: string; timestamp?: string };
 
 // Icon component for Lucid icons
 const LucidIcon: React.FC<{ name: string; size?: number; className?: string }> = ({ name, size = 16, className = '' }) => {
@@ -98,23 +99,196 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
   );
 };
 
+// Collapsible Thinking Display
+const CollapsibleThinking: React.FC<{ content: string }> = ({ content }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="tangent-chat-thinking" style={{ 
+      padding: '8px 12px', 
+      backgroundColor: 'var(--background-secondary)',
+      borderRadius: '6px',
+      border: '1px solid var(--background-modifier-border)',
+      marginBottom: '8px'
+    }}>
+      <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setOpen(o => !o)}>
+        <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
+        <LucidIcon name="brain" size={12} />
+        <b style={{ color: 'var(--text-accent)' }}>Thinking...</b>
+      </span>
+      {open && (
+        <div style={{ marginTop: 8, fontSize: '0.9em', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          <ReactMarkdown>{content}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Tool Confirmation Component
+const ToolConfirmationCard: React.FC<{
+  pendingTool: PendingToolCall;
+  onApprove: () => void;
+  onDeny: () => void;
+  approved?: boolean;
+}> = ({ pendingTool, onApprove, onDeny, approved }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleApprove = async () => {
+    setIsProcessing(true);
+    onApprove();
+  };
+
+  const handleDeny = async () => {
+    setIsProcessing(true);
+    onDeny();
+  };
+
+  if (approved !== undefined) {
+    // Show result of confirmation
+    return (
+      <div style={{
+        padding: '12px 16px',
+        backgroundColor: approved ? 'var(--color-green-bg)' : 'var(--color-red-bg)',
+        borderRadius: '8px',
+        border: `1px solid ${approved ? 'var(--color-green)' : 'var(--color-red)'}`,
+        margin: '8px 0'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+          {approved ? '✅ Tool Approved' : '❌ Tool Denied'}
+        </div>
+        <div style={{ fontSize: '13px', opacity: 0.8 }}>
+          {pendingTool.name} {approved ? 'was executed' : 'was cancelled'}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      padding: '12px 16px',
+      backgroundColor: 'var(--background-secondary)',
+      borderRadius: '8px',
+      border: '1px solid var(--color-orange)',
+      margin: '8px 0'
+    }}>
+      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--color-orange)' }}>
+        🔧 Tool Confirmation Required
+      </div>
+      <div style={{ marginBottom: '8px' }}>
+        <strong>Tool:</strong> {pendingTool.name}
+      </div>
+      <div style={{ marginBottom: '12px', fontSize: '12px', fontFamily: 'monospace', backgroundColor: 'var(--background-primary)', padding: '8px', borderRadius: '4px' }}>
+        <strong>Arguments:</strong>
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+          {JSON.stringify(pendingTool.args, null, 2)}
+        </pre>
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <button
+          onClick={handleApprove}
+          disabled={isProcessing}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: 'var(--color-green)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: isProcessing ? 'not-allowed' : 'pointer',
+            opacity: isProcessing ? 0.6 : 1
+          }}
+        >
+          {isProcessing ? 'Processing...' : 'Approve'}
+        </button>
+        <button
+          onClick={handleDeny}
+          disabled={isProcessing}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: 'var(--color-red)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: isProcessing ? 'not-allowed' : 'pointer',
+            opacity: isProcessing ? 0.6 : 1
+          }}
+        >
+          {isProcessing ? 'Processing...' : 'Deny'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResponse, app }) => {
-  const { messages, addMessage, addToolCall, addToolResult, clearMessages } = useChatMessages();
+  const { 
+    messages, 
+    addMessage, 
+    addToolCall, 
+    addToolResult, 
+    clearMessages,
+    pendingToolConfirmations,
+    addPendingToolConfirmation,
+    resolvePendingToolConfirmation
+  } = useChatMessages();
   const [input, setInput] = React.useState('');
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [selectedModel, setSelectedModel] = React.useState<ModelConfig>(MODEL_CONFIGS[0]);
+  const [thinkingEnabled, setThinkingEnabled] = React.useState<boolean>((selectedModel.defaultThinkingBudget || 0) > 0);
   const [selectedFiles, setSelectedFiles] = React.useState<{name: string, content: string, path: string, isCurrentFile?: boolean}[]>([]);
   const [showFileDropdown, setShowFileDropdown] = React.useState(false);
   const [availableFiles, setAvailableFiles] = React.useState<{name: string, path: string}[]>([]);
   const [atMentionQuery, setAtMentionQuery] = React.useState('');
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
+  const [memoryContent, setMemoryContent] = React.useState<string>('');
+  const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessagesRef = useRef(messages);
   const justSelectedFileRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Update thinking enabled state when model changes
+  useEffect(() => {
+    if (selectedModel.defaultThinkingBudget !== undefined) {
+      setThinkingEnabled(selectedModel.defaultThinkingBudget > 0);
+    }
+  }, [selectedModel]);
+
+  // Calculate thinking budget based on enabled state
+  const getThinkingBudget = () => {
+    return thinkingEnabled ? (selectedModel.defaultThinkingBudget || 8192) : 0;
+  };
+
+  // Add thinking message to chat
+  const addThinkingMessage = (content: string) => {
+    addMessage({
+      role: 'thinking',
+      content,
+      timestamp: formatTimestamp()
+    } as any);
+  };
+
+  // Tool confirmation handler
+  const handleToolConfirmation = async (pendingTool: PendingToolCall): Promise<ToolConfirmationResult> => {
+    return new Promise((resolve) => {
+      // Add pending confirmation to context
+      addPendingToolConfirmation(pendingTool);
+      
+      // Set up a resolver for this specific tool call
+      const confirmationResolver = (approved: boolean) => {
+        resolvePendingToolConfirmation(pendingTool.id, approved);
+        resolve({
+          approved,
+          toolCallId: pendingTool.id
+        });
+      };
+      
+      // Store resolver temporarily (we'll use it in the component)
+      (window as any)[`confirmationResolver_${pendingTool.id}`] = confirmationResolver;
+    });
+  };
+
   // Type guard for SystemMessage
-  const isSystemMessage = (msg: any) => msg instanceof SystemMessage || msg.role === 'system';
+  const isSystemMessage = (msg: any) => msg.role === 'system';
 
   // Auto-resize textarea function
   const autoResizeTextarea = () => {
@@ -129,8 +303,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     currentMessagesRef.current = messages;
   }, [messages]);
 
+  // Automatically load memory content when component mounts
+  useEffect(() => {
+    loadMemoryContent();
+  }, []);
+
   // Function to get current active file and add it to context
   const getCurrentFileContext = async () => {
+    // Don't auto-add if user has manually removed the current file
+    if (hasUserRemovedCurrentFile) {
+      return;
+    }
+    
     try {
       const activeFile = app.workspace.getActiveFile();
       if (activeFile) {
@@ -178,11 +362,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       const file = app.vault.getAbstractFileByPath(filePath);
       if (file && 'path' in file && file.path.endsWith('.md')) {
         const content = await app.vault.read(file as any);
+        
+        // Check if this is the current active file being added back
+        const activeFile = app.workspace.getActiveFile();
+        const isCurrentFile = activeFile && activeFile.path === filePath;
+        
         const newFile = {
           name: (file as any).name,
           content: content,
-          path: (file as any).path
+          path: (file as any).path,
+          isCurrentFile: isCurrentFile
         };
+        
+        if (isCurrentFile) {
+          // Reset the flag since user is manually adding current file back
+          setHasUserRemovedCurrentFile(false);
+        }
         
         // Check if file is already selected
         if (!selectedFiles.some(f => f.path === filePath)) {
@@ -196,7 +391,26 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
   // Function to remove file from context
   const removeFileFromContext = (filePath: string) => {
-    setSelectedFiles(prev => prev.filter(f => f.path !== filePath));
+    setSelectedFiles(prev => {
+      const fileToRemove = prev.find(f => f.path === filePath);
+      // If removing the current file, remember that user manually removed it
+      if (fileToRemove?.isCurrentFile) {
+        setHasUserRemovedCurrentFile(true);
+      }
+      return prev.filter(f => f.path !== filePath);
+    });
+  };
+
+  // Function to automatically load memory content
+  const loadMemoryContent = async () => {
+    try {
+      const memoryResult = await readMemory(app, {});
+      if (memoryResult.type === 'text' && memoryResult.text) {
+        setMemoryContent(memoryResult.text);
+      }
+    } catch (error) {
+      console.error('Error loading memory content:', error);
+    }
   };
 
   // Handle input change for @ mentions
@@ -281,132 +495,63 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   }, [input]);
 
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
-    console.log('[AI DEBUG] Continuing AI response with current messages:', currentMessagesRef.current);
+    if (isStreaming) return;
     
-    let aiContent = '';
+    const currentMessages = currentMessagesRef.current;
+    const conversationHistory = existingConversationHistory || [];
+    const processedCount = processedMessageCount || 0;
     
-    // Use existing conversation history if provided, otherwise build from current messages
-    let conversationHistory: ConversationMessage[] = [];
-    
-    if (existingConversationHistory) {
-      conversationHistory = [...existingConversationHistory];
-      
-      // Add any new tool results that weren't in the original conversation history
-      const startIndex = processedMessageCount || 0;
-      const newMessages = currentMessagesRef.current.slice(startIndex);
-      
-      const newConvertedMessages = newMessages.map(msg => {
-        if (msg.role === 'tool-call') {
-          // Convert tool call to assistant message with tool_calls
-          return new AIMessage({
-            content: '',
-            tool_calls: [{
-              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              type: 'tool_call' as const,
-              name: (msg as any).toolName,
-              args: (msg as any).toolArgs
-            }]
-          });
-        } else if (msg.role === 'tool-result') {
-          // Convert tool result to tool message
-          let content = '';
-          const result = (msg as any).result;
-          if (result && typeof result === 'object') {
-            if (result.type === 'file-list') {
-              content = result.files.map((f: any) => `${f.type === 'folder' ? '📁' : '📄'} ${f.name} (${f.path})`).join('\n');
-            } else if (result.type === 'text') {
-              content = result.text;
-            } else {
-              content = JSON.stringify(result, null, 2);
-            }
-          } else {
-            content = String(result);
-          }
-          return new ToolMessage({
-            content: content,
-            name: (msg as any).toolName,
-            tool_call_id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-          });
-        }
-        return null; // Skip user/ai messages as they're already in the conversation history
-      }).filter(msg => msg !== null);
-      
-      conversationHistory.push(...newConvertedMessages);
-    } else {
-      // Build conversation history from current messages
-      // Only add the system prompt if the first message is not already a SystemMessage
-      if (
-        currentMessagesRef.current.length === 0 ||
-        !isSystemMessage(currentMessagesRef.current[0])
-      ) {
-        let systemPrompt = SYSTEM_PROMPT;
-        
-        // Add context files to the system prompt if any are selected
-        if (selectedFiles.length > 0) {
-          const contextMessage = selectedFiles.map(file => {
-            const prefix = file.isCurrentFile ? 'CURRENT FILE' : 'CONTEXT FILE';
-            return `${prefix}: ${file.name} (${file.path})\n\n${file.content}`;
-          }).join('\n\n---\n\n');
-          
-          systemPrompt += `\n\nHere are the relevant files for context:\n\n${contextMessage}`;
-        }
-        
-        conversationHistory.push(new SystemMessage(systemPrompt));
-      }
-      
-      // Convert current messages to conversation history format
-      const convertedMessages = currentMessagesRef.current.map(msg => {
-        if (msg.role === 'user') {
-          return new HumanMessage((msg as any).content);
-        } else if (msg.role === 'ai') {
-          return new AIMessage((msg as any).content);
-        } else if (msg.role === 'tool-call') {
-          // Convert tool call to assistant message with tool_calls
-          return new AIMessage({
-            content: '',
-            tool_calls: [{
-              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              type: 'tool_call' as const,
-              name: (msg as any).toolName,
-              args: (msg as any).toolArgs
-            }]
-          });
-               } else if (msg.role === 'tool-result') {
-           // Convert tool result to tool message
-           let content = '';
-           const result = (msg as any).result;
-           if (result && typeof result === 'object') {
-             if (result.type === 'file-list') {
-               content = result.files.map((f: any) => `${f.type === 'folder' ? '📁' : '📄'} ${f.name} (${f.path})`).join('\n');
-             } else if (result.type === 'text') {
-               content = result.text;
-             } else {
-             content = JSON.stringify(result, null, 2);
-             }
-           } else {
-             content = String(result);
-           }
-           return new ToolMessage({
-             content: content,
-             name: (msg as any).toolName,
-             tool_call_id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-           });
-         }
-        return new HumanMessage(''); // fallback
+    // Add system message if not already present
+    if (!conversationHistory.some(msg => msg.role === 'system')) {
+      conversationHistory.unshift({
+        role: 'system',
+        parts: [{ text: SYSTEM_PROMPT }]
       });
-      
-      // Add converted messages to conversation history
-      conversationHistory.push(...convertedMessages);
     }
     
-    console.log('[AI DEBUG] Final conversation history being sent to AI:', conversationHistory);
+         // Add unprocessed messages to conversation history
+     const messagesToProcess = currentMessages.slice(processedCount);
+     for (const msg of messagesToProcess) {
+       if (msg.role === 'tool-call' || msg.role === 'tool-result') {
+         // Skip tool messages - they are handled separately
+         continue;
+       } else if ((msg as any).role === 'thinking') {
+         // Skip thinking messages - they are display only
+         continue;
+       } else if (msg.role === 'user' || msg.role === 'ai') {
+         conversationHistory.push({
+           role: msg.role === 'user' ? 'user' : 'model',
+           parts: [{ text: msg.content }]
+         });
+       }
+     }
+    
+    console.log('[AI DEBUG] Conversation history length:', conversationHistory.length);
+    
+    let messageBuffer = '';
+    let isFirstToken = true;
     
     await streamAIResponse(
-      '', // Empty prompt since we're continuing
+      '', // Empty prompt since we're using conversation history
       (token: string) => {
-        aiContent += token;
-        // Update the last AI message
-        addMessage({ role: 'ai', content: aiContent, streaming: true });
+        if (isFirstToken) {
+          // Add initial AI message
+          addMessage({
+            role: 'ai',
+            content: token,
+            streaming: true,
+            timestamp: formatTimestamp()
+          });
+          isFirstToken = false;
+        } else {
+          // Update the last AI message
+          const updatedMessages = [...currentMessagesRef.current];
+          const lastMessage = updatedMessages[updatedMessages.length - 1];
+          if (lastMessage && lastMessage.role === 'ai') {
+            lastMessage.content += token;
+            // Don't call setMessages directly here as it's managed by context
+          }
+        }
       },
       selectedModel.id,
       (toolName: string, toolArgs: any) => {
@@ -416,149 +561,204 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         addToolResult(toolName, result);
       },
       (toolResults: string) => {
-        // Tools completed - trigger AI to continue with tool results in context
+        // Tools completed - AI has handled the full tool calling cycle
         console.log('[AI DEBUG] Tool results completed:', toolResults);
-        
-        // Wait a brief moment for tool results to be added to state, then continue AI response
-        setTimeout(() => {
-          console.log('[AI DEBUG] Triggering AI continuation with tool results in context');
-          // Continue the AI response with updated conversation history that includes tool results
-          continueAIResponse(conversationHistory, 0);
-        }, 100);
       },
-      conversationHistory
+      conversationHistory,
+      getThinkingBudget(),
+      (thoughts: string) => {
+        addThinkingMessage(thoughts);
+        },
+        handleToolConfirmation
     );
-    setIsStreaming(false);
   };
 
-  // Function to format timestamp
   const formatTimestamp = () => {
     const now = new Date();
-    const month = now.toLocaleString('default', { month: 'short' });
-    const day = String(now.getDate()).padStart(2, '0');
-    const year = now.getFullYear();
-    return `${month} ${day}, ${year}.md`;
+    return now.toLocaleString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   const sendMessage = async (messageText?: string, hideMessage?: boolean) => {
-    const inputText = messageText || input;
-    if (!inputText.trim() || isStreaming) return;
-
-    setIsStreaming(true);
-    setInput('');
-
+    const textToSend = messageText || input.trim();
+    
+    if (!textToSend && !hideMessage) return;
+    
+    if (isStreaming) return;
+    
     const timestamp = formatTimestamp();
     
-    let aiContent = '';
+    // Add current file to context on first message
+    if (messages.length === 0) {
+      // Reset the flag for fresh conversations
+      setHasUserRemovedCurrentFile(false);
+      await getCurrentFileContext();
+    }
     
-    // Build conversation history
+    // Clear input early
+    setInput('');
+    
+    setIsStreaming(true);
+    
+        // Build conversation history
     const conversationHistory: ConversationMessage[] = [];
-    // Only add the system prompt if the first message is not already a SystemMessage
-    if (
-      messages.length === 0 ||
-      !isSystemMessage(messages[0])
-    ) {
-      let systemPrompt = SYSTEM_PROMPT;
+    
+    console.log('[CONVERSATION] Starting to build conversation history...');
+    console.log('[CONVERSATION] Total messages in chat:', messages.length);
+    
+    // Add system message with memory content
+    let systemMessage = SYSTEM_PROMPT;
+    if (memoryContent) {
+      systemMessage += `\n\n## Assistant Memory\n\nHere is your memory about the user from previous conversations:\n\n${memoryContent}`;
+      console.log('[CONVERSATION] Added memory content to system message');
+    }
+    conversationHistory.push({
+      role: 'system',
+      parts: [{ text: systemMessage }]
+    });
+    console.log('[CONVERSATION] Added system message');
+    
+    // Add messages from context (existing messages)
+    let addedMessagesCount = 0;
+    for (const msg of messages) {
+      if (msg.role === 'tool-call' || msg.role === 'tool-result') {
+        // Skip tool messages - they are handled separately
+        console.log('[CONVERSATION] Skipping tool message:', msg.role);
+        continue;
+      } else if ((msg as any).role === 'thinking') {
+        // Skip thinking messages - they are display only
+        console.log('[CONVERSATION] Skipping thinking message');
+        continue;
+      } else if ((msg as any).role === 'tool-confirmation') {
+        // Skip confirmation messages - they are display only
+        console.log('[CONVERSATION] Skipping confirmation message');
+        continue;
+      } else if (msg.role === 'user' || msg.role === 'ai') {
+        const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+        console.log(`[CONVERSATION] Adding ${msg.role} message:`, preview);
+        conversationHistory.push({
+          role: msg.role === 'user' ? 'user' : 'model',
+          parts: [{ text: msg.content }]
+        });
+        addedMessagesCount++;
+      }
+    }
+    console.log('[CONVERSATION] Added', addedMessagesCount, 'existing messages to history');
+    
+        // Add the current message if not hidden
+    if (!hideMessage) {
+      let aiMessage = textToSend;
+      let displayMessage = textToSend;
       
-      // Add context files to the system prompt if any are selected
+      // Add file context for AI (but not for display)
       if (selectedFiles.length > 0) {
-        const contextMessage = selectedFiles.map(file => {
-          const prefix = file.isCurrentFile ? 'CURRENT FILE' : 'CONTEXT FILE';
-          return `${prefix}: ${file.name} (${file.path})\n\n${file.content}`;
-        }).join('\n\n---\n\n');
-        
-        systemPrompt += `\n\nHere are the relevant files for context:\n\n${contextMessage}`;
+        console.log('[CONVERSATION] Adding file context for', selectedFiles.length, 'files:', selectedFiles.map(f => f.name));
+        const fileContext = selectedFiles.map(file => `## ${file.name}\n\n${file.content}`).join('\n\n');
+        aiMessage = `${fileContext}\n\n---\n\n${textToSend}`;
+        // Display message shows just the text with a small context indicator
+        const fileNames = selectedFiles.map(f => f.name).join(', ');
+        displayMessage = `${textToSend}\n\n*📎 Context: ${fileNames}*`;
+        console.log('[CONVERSATION] AI message length with context:', aiMessage.length, 'characters');
+      } else {
+        console.log('[CONVERSATION] No file context added');
       }
       
-      conversationHistory.push(new SystemMessage(systemPrompt));
+      const currentMessagePreview = aiMessage.length > 100 ? aiMessage.substring(0, 100) + '...' : aiMessage;
+      console.log('[CONVERSATION] Adding current user message:', currentMessagePreview);
+      
+      // Add to conversation history (with file context for AI)
+      conversationHistory.push({
+        role: 'user',
+        parts: [{ text: aiMessage }]
+      });
+      
+      // Add to chat UI (display version without file content)
+      addMessage({
+        role: 'user',
+        content: displayMessage,
+        timestamp
+      });
+      
+      if (selectedFiles.length > 0) {
+        console.log('[CONVERSATION] 👀 What user sees in chat:', displayMessage);
+        console.log('[CONVERSATION] 🤖 What AI receives (first 200 chars):', aiMessage.substring(0, 200) + (aiMessage.length > 200 ? '...' : ''));
+      }
     }
     
-    // Convert existing messages to conversation history format
-    const convertedMessages = messages.map(msg => {
-      if (msg.role === 'user') {
-        return new HumanMessage((msg as any).content);
-      } else if (msg.role === 'ai') {
-        return new AIMessage((msg as any).content);
-      } else if (msg.role === 'tool-call') {
-        // Convert tool call to assistant message with tool_calls
-        return new AIMessage({
-          content: '',
-          tool_calls: [{
-            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            type: 'tool_call' as const,
-            name: (msg as any).toolName,
-            args: (msg as any).toolArgs
-          }]
-        });
-             } else if (msg.role === 'tool-result') {
-         // Convert tool result to tool message
-         let content = '';
-         const result = (msg as any).result;
-         if (result && typeof result === 'object') {
-           if (result.type === 'file-list') {
-             content = result.files.map((f: any) => `${f.type === 'folder' ? '📁' : '📄'} ${f.name} (${f.path})`).join('\n');
-           } else if (result.type === 'text') {
-             content = result.text;
-           } else {
-             content = JSON.stringify(result, null, 2);
-           }
-         } else {
-           content = String(result);
-         }
-         return new ToolMessage({
-           content: content,
-           name: (msg as any).toolName,
-           tool_call_id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-         });
-       }
-      return new HumanMessage(''); // fallback
+    console.log('[CONVERSATION] Final conversation history length:', conversationHistory.length);
+    console.log('[CONVERSATION] Final history breakdown:');
+    conversationHistory.forEach((msg, index) => {
+      const preview = msg.parts[0]?.text ? 
+        (msg.parts[0].text.length > 50 ? msg.parts[0].text.substring(0, 50) + '...' : msg.parts[0].text) 
+        : 'No text';
+      console.log(`  ${index + 1}. ${msg.role}: ${preview}`);
     });
+    console.log('[CONVERSATION] Sending to AI...');
     
-    // Add converted messages to conversation history
-    conversationHistory.push(...convertedMessages);
+    let messageBuffer = '';
+    let isFirstToken = true;
     
-    // Add the new user message as HumanMessage
-    if (!hideMessage) {
-      conversationHistory.push(new HumanMessage(inputText));
+    try {
+      await streamAIResponse(
+        textToSend,
+        (token: string) => {
+          if (isFirstToken) {
+            // Add initial AI message
+            addMessage({
+              role: 'ai',
+              content: token,
+              streaming: true,
+              timestamp: formatTimestamp()
+            });
+            isFirstToken = false;
+          } else {
+            // Update the last AI message
+            const updatedMessages = [...currentMessagesRef.current];
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
+            if (lastMessage && lastMessage.role === 'ai') {
+              lastMessage.content += token;
+              // Don't call setMessages directly here as it's managed by context
+            }
+          }
+        },
+        selectedModel.id,
+        (toolName: string, toolArgs: any) => {
+          addToolCall(toolName, toolArgs);
+        },
+        (toolName: string, result: any) => {
+          addToolResult(toolName, result);
+          // Refresh memory content if memory was updated
+          if (toolName === 'updateMemory') {
+            setTimeout(() => loadMemoryContent(), 100); // Small delay to ensure file is written
+          }
+        },
+        (toolResults: string) => {
+          // Tools completed - AI has handled the full tool calling cycle
+          console.log('[AI DEBUG] Tool results completed:', toolResults);
+        },
+        conversationHistory,
+        getThinkingBudget(),
+        (thoughts: string) => {
+          addThinkingMessage(thoughts);
+        },
+        handleToolConfirmation
+      );
+    } catch (error) {
+      console.error('Error sending message:', error);
+      addMessage({
+        role: 'ai',
+        content: `Error: ${error}`,
+        timestamp: formatTimestamp()
+      });
+    } finally {
+      setIsStreaming(false);
+      console.log('[CONVERSATION] ✅ Message sending completed');
     }
-
-    // Add user message to UI state
-    if (!hideMessage) {
-      addMessage({ role: 'user', content: inputText, timestamp });
-    }
-    
-    console.log('[AI DEBUG] Final conversation history being sent to AI:', conversationHistory);
-    
-    await streamAIResponse(
-      inputText,
-      (token: string) => {
-        aiContent += token;
-        // Update the last AI message
-        addMessage({ role: 'ai', content: aiContent, streaming: true });
-      },
-      selectedModel.id,
-      (toolName: string, toolArgs: any) => {
-        addToolCall(toolName, toolArgs);
-      },
-      (toolName: string, result: any) => {
-        addToolResult(toolName, result);
-      },
-      (toolResults: string) => {
-        // Tools completed - trigger AI to continue with tool results in context
-        console.log('[AI DEBUG] Tool results completed:', toolResults);
-        
-        // Wait a brief moment for tool results to be added to state, then continue AI response
-        setTimeout(() => {
-          console.log('[AI DEBUG] Triggering AI continuation with tool results in context');
-          // Continue the AI response with updated conversation history that includes tool results
-          continueAIResponse(conversationHistory, messages.length + 1);
-        }, 100);
-      },
-      conversationHistory
-    );
-    // Mark the last AI message as complete
-    // (Optional) You can add a method to mark the last AI message as complete in the provider if needed
-    setIsStreaming(false);
   };
 
   useEffect(() => {
@@ -595,6 +795,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
              clearMessages();
              setSelectedFiles([]);
              setInput('');
+             setHasUserRemovedCurrentFile(false); // Reset flag for new chat
            }}
            style={{
              background: 'none',
@@ -629,6 +830,33 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           } else if (msg.role === 'tool-result') {
             return (
               <CollapsibleToolResult key={idx} toolName={msg.toolName} result={msg.result} />
+            );
+          } else if ((msg as any).role === 'thinking') {
+            return (
+              <CollapsibleThinking key={idx} content={(msg as any).content} />
+            );
+          } else if ((msg as any).role === 'tool-confirmation') {
+            const confirmationMsg = msg as any;
+            const resolver = (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
+            
+            return (
+              <ToolConfirmationCard
+                key={idx}
+                pendingTool={confirmationMsg.pendingTool}
+                approved={confirmationMsg.approved}
+                onApprove={() => {
+                  if (resolver) {
+                    resolver(true);
+                    delete (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
+                  }
+                }}
+                onDeny={() => {
+                  if (resolver) {
+                    resolver(false);
+                    delete (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
+                  }
+                }}
+              />
             );
           }
           
@@ -721,7 +949,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           border: '1px solid var(--background-modifier-border)',
           borderRadius: '8px',
           backgroundColor: 'var(--background-secondary)',
-          paddingBottom: '40px' // Space for controls at bottom
+          paddingBottom: '40px', // Space for controls at bottom
+          margin: '8px'
         }}>
           <textarea
             ref={textareaRef}
@@ -819,7 +1048,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           {/* Bottom controls */}
           <div style={{
             position: 'absolute',
-            bottom: '8px',
+            bottom: '2px',
             left: '8px',
             right: '8px',
             display: 'flex',
@@ -827,43 +1056,79 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             alignItems: 'center',
             pointerEvents: 'none' // Allow clicks to pass through to children
           }}>
-            {/* Model Selection - Bottom Left */}
-            <select
-              value={selectedModel.id}
-              onChange={e => {
-                const model = MODEL_CONFIGS.find(m => m.id === e.target.value);
-                if (model) setSelectedModel(model);
-              }}
-              disabled={isStreaming}
-              aria-label="Select AI model"
-              style={{
-                backgroundColor: 'transparent',
-                color: 'var(--text-faint)',
-                border: 'none',
-                borderWidth: '0',
-                borderStyle: 'none',
-                boxShadow: 'none',
-                fontSize: '12px',
-                outline: 'none',
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-                appearance: 'none',
-                WebkitAppearance: 'none',
-                transition: 'color 0.2s ease'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.color = 'var(--text-muted)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.color = 'var(--text-faint)';
-              }}
-            >
-              {MODEL_CONFIGS.map(model => (
-                <option key={model.id} value={model.id}>
-                  {model.label}
-                </option>
-              ))}
-            </select>
+            {/* Model Selection and Thinking Budget - Bottom Left */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', pointerEvents: 'auto' }}>
+              <select
+                value={selectedModel.id}
+                onChange={e => {
+                  const model = MODEL_CONFIGS.find(m => m.id === e.target.value);
+                  if (model) setSelectedModel(model);
+                }}
+                disabled={isStreaming}
+                aria-label="Select AI model"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-faint)',
+                  border: 'none',
+                  borderWidth: '0',
+                  borderStyle: 'none',
+                  boxShadow: 'none',
+                  fontSize: '12px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                  transition: 'color 0.2s ease'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = 'var(--text-faint)';
+                }}
+              >
+                {MODEL_CONFIGS.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.label}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Thinking Toggle Control */}
+              {selectedModel.supportsThinking && (
+                <button
+                  onClick={() => setThinkingEnabled(!thinkingEnabled)}
+                  disabled={isStreaming}
+                  aria-label={thinkingEnabled ? "Disable thinking" : "Enable thinking"}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '12px',
+                    backgroundColor: 'transparent',
+                    color: thinkingEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    transition: 'color 0.2s ease',
+                    opacity: isStreaming ? 0.6 : 1
+                  }}
+                  onMouseEnter={e => {
+                    if (!isStreaming) {
+                      e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                  title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
+                >
+                  <LucidIcon name="brain" size={10} />
+                  <span>{thinkingEnabled ? "Thinking" : "No thinking"}</span>
+                </button>
+              )}
+            </div>
             
             {/* Send Button - Bottom Right */}
             <button

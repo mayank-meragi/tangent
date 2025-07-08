@@ -1,49 +1,55 @@
-import { tool } from "@langchain/core/tools";
-import { App, TFile } from "obsidian";
-import { ToolResult } from "./types";
+import { App, TFile } from 'obsidian';
+import { ToolResult, ToolFunction } from './types';
 
-// Tool: Read contents of a file in the vault
-export const createReadFileTool = (app: App) => tool(
-  async ({ filePath, onMessage }: { filePath: string, onMessage?: (msg: any) => void }) => {
-    if (onMessage) onMessage({ role: 'tool-call', toolName: 'readFile', toolArgs: { filePath } });
-    
-    try {
-      const vault = app.vault;
-      
-      // Get the file by path
-      const file = vault.getAbstractFileByPath(filePath);
-      
-      if (!file) {
-        return { type: 'text', text: `File not found: ${filePath}` };
+export const readFileFunction: ToolFunction = {
+  name: 'readFile',
+  description: 'Read the content of a file from the Obsidian vault',
+  parameters: {
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: 'The path to the file to read'
       }
-      
-      if (!(file instanceof TFile)) {
-        return { type: 'text', text: `Path is not a file: ${filePath}` };
-      }
-      
-      // Use cachedRead for better performance on loaded files
-      const content = await vault.cachedRead(file);
-      
-      return {
-        type: 'text',
-        text: `Contents of ${filePath}:\n\n${content}`
-      };
-    } catch (error) {
-      return { type: 'text', text: `Error reading file: ${error instanceof Error ? error.message : String(error)}` };
-    }
-  },
-  {
-    name: "readFile",
-    description: "Read the contents of a file in the Obsidian vault using cached read for better performance. Use this ONLY after listing files first to find the correct file path. Provide the exact file path as shown in the file listing.",
-    schema: {
-      type: "object",
-      properties: {
-        filePath: { 
-          type: "string", 
-          description: "The exact full path to the file in the vault as shown in listVaultFiles results (e.g., 'folder/note.md')" 
-        }
-      },
-      required: ["filePath"],
     },
+    required: ['path']
+  },
+  requiresConfirmation: false // Read-only operation, no confirmation needed
+};
+
+export async function readFile(app: App, args: { path: string }): Promise<ToolResult> {
+  try {
+    const { path } = args;
+    const vault = app.vault;
+    
+    // Try to get the file
+    const file = vault.getAbstractFileByPath(path);
+    if (!file) {
+      return {
+        type: 'error',
+        error: `File not found: ${path}`
+      };
+    }
+    
+    // Check if it's actually a file (not a folder)
+    if (!(file instanceof TFile)) {
+      return {
+        type: 'error',
+        error: `${path} is a folder, not a file`
+      };
+    }
+    
+    // Read the file content
+    const content = await vault.read(file);
+    
+    return {
+      type: 'text',
+      text: content
+    };
+  } catch (error) {
+    return {
+      type: 'error',
+      error: `Error reading file: ${error}`
+    };
   }
-); 
+} 

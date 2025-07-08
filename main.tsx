@@ -3,7 +3,6 @@ import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
 import { streamAIResponse, ConversationMessage } from './ai';
-import { HumanMessage } from '@langchain/core/messages';
 
 // Remember to rename these classes and interfaces!
 
@@ -66,14 +65,17 @@ class ChatView extends View {
 		onToolCall?: (toolName: string, toolArgs: any) => void,
 		onToolResult?: (toolName: string, result: any) => void,
 		onToolsComplete?: (toolResults: string) => void,
-		conversationHistory?: ConversationMessage[]
+		conversationHistory?: ConversationMessage[],
+		thinkingBudget?: number,
+		onThinking?: (thoughts: string) => void,
+		onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>
 	) => {
-		console.log('[AI DEBUG] streamAIResponse called with:', { prompt, modelId, apiKey: (this.plugin.settings.geminiApiKey || '').slice(0, 4) + '...' });
+		console.log('[AI DEBUG] streamAIResponse called with:', { prompt, modelId, apiKey: (this.plugin.settings.geminiApiKey || '').slice(0, 4) + '...', thinkingBudget });
 		
 		// Use conversation history if provided, otherwise build from prompt
 		const messages: ConversationMessage[] = conversationHistory && conversationHistory.length > 0 
 			? conversationHistory
-			: (prompt.trim() ? [new HumanMessage(prompt)] : []);
+			: (prompt.trim() ? [{ role: 'user', parts: [{ text: prompt }] }] : []);
 		
 		await streamAIResponse({
 			apiKey: this.plugin.settings.geminiApiKey || '',
@@ -83,7 +85,10 @@ class ChatView extends View {
 			onToolCall,
 			onToolResult,
 			onToolsComplete,
+			onThinking,
+			onToolConfirmationNeeded,
 			app: this.plugin.app,
+			thinkingBudget,
 		});
 	};
 }

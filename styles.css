@@ -112,7 +112,7 @@ If your plugin does not need CSS, delete this file.
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	padding-bottom: 48px; /* Add space for status bar */
+	padding-bottom: 27px;
 }
 
 .tangent-chat-spinner {
