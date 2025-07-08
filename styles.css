@@ -391,3 +391,10 @@ If your plugin does not need CSS, delete this file.
 	text-align: center;
 	color: var(--text-muted);
 }
+
+/* Remove border and outline for chat textarea on focus */
+textarea:focus {
+	outline: none !important;
+	border: none !important;
+	box-shadow: none !important;
+}

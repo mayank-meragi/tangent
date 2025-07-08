@@ -1045,8 +1045,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               resize: 'none',
               overflowY: 'hidden',
               borderRadius: '8px',
-              boxSizing: 'border-box',
-              transition: 'border-color 0.2s'
+              boxSizing: 'border-box'
             }}
           />
           
