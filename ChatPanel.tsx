@@ -883,15 +883,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           const isAI = (msg as any).role === 'ai';
           
           return (
-            <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div 
                 className={isUser ? 'user-message-container' : ''}
                 style={{
                   backgroundColor: isUser ? 'var(--background-secondary)' : 'transparent',
-                  padding: isUser ? '12px 16px' : '0',
+                  padding: isUser ? '1px 16px' : '0',
                   borderRadius: isUser ? '8px' : '0',
                   alignSelf: isUser ? 'flex-end' : 'flex-start',
-                  maxWidth: isUser ? '80%' : '100%',
+                  maxWidth: isUser ? '100%' : '100%',
+                  width: isUser ? '100%' : undefined,
                   border: isUser ? '1px solid var(--background-modifier-border)' : 'none',
                   position: 'relative'
                 }}
