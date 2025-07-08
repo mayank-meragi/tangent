@@ -1233,9 +1233,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                 style={{
                   width: '32px',
                   height: '32px',
-                  backgroundColor: 'var(--interactive-accent)',
-                  color: 'var(--text-on-accent)',
+                  background: 'none',
                   border: 'none',
+                  color: 'var(--text-muted)',
                   borderRadius: '6px',
                   cursor: isStreaming ? 'not-allowed' : 'pointer',
                   opacity: isStreaming ? 0.6 : 1,
@@ -1256,7 +1256,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                     animation: 'tangent-spin 1s linear infinite'
                   }} />
                 ) : (
-                  <LucidIcon name="send" size={14} />
+                  <LucidIcon name="send" size={18} />
                 )}
               </button>
             </div>
