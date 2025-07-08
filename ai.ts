@@ -89,7 +89,7 @@ export async function streamAIResponse({
   apiKey: string;
   modelId: string;
   messages: ConversationMessage[];
-  onToken: (token: string) => void;
+  onToken: (token: any) => void;
   onToolCall?: (toolName: string, args: any) => void;
   onToolResult?: (toolName: string, result: any) => void;
   onToolsComplete?: (toolResults: string) => void;
@@ -167,20 +167,14 @@ export async function streamAIResponse({
     
     // Collect the full response from the stream
     let fullResponse: any = null;
-    let responseText = '';
     
     for await (const chunk of response) {
       fullResponse = chunk; // Always update to the latest chunk
+
+      console.log('[AI DEBUG] Streaming response:', chunk);
       // Collect text content from streaming chunks
       if (chunk.candidates && chunk.candidates[0]?.content?.parts) {
-        for (const part of chunk.candidates[0].content.parts) {
-          if (part.text && (part as any).thought !== true) {
-            responseText += part.text;
-            console.log('[AI DEBUG] Streaming response:', part);
-            onToken(part.text);
-            await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop for UI update
-          }
-        }
+        onToken(chunk);
       }
     }
     
@@ -211,7 +205,7 @@ export async function streamAIResponse({
     
     // Check if there are function calls
     if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {
-      let hasToolCalls = true;
+      const hasToolCalls = true;
       
       // Process each function call
       for (const functionCall of fullResponse.functionCalls) {

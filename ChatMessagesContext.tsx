@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { PendingToolCall, ToolConfirmationResult } from './tools';
 
 export type ChatMessage =
-  | { id: string; role: 'user' | 'ai'; content: string; streaming?: boolean; timestamp?: string }
+  | { id: string; role: 'user'; content: string; timestamp?: string }
+  | { id: string; role: 'ai'; message: string; thought: string; streaming?: boolean; timestamp?: string }
   | { id: string; role: 'tool-call'; toolName: string; toolArgs: any }
   | { id: string; role: 'tool-result'; toolName: string; result: any }
   | { id: string; role: 'tool-confirmation'; pendingTool: PendingToolCall; approved?: boolean };
@@ -33,33 +34,67 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingToolConfirmations, setPendingToolConfirmations] = useState<Map<string, PendingToolCall>>(new Map());
 
+  function isValidChatMessage(msg: any): msg is ChatMessage {
+    if (msg.role === 'ai') return typeof msg.message === 'string' && typeof msg.thought === 'string';
+    if (msg.role === 'user') return typeof msg.content === 'string';
+    if (msg.role === 'tool-call') return typeof msg.toolName === 'string';
+    if (msg.role === 'tool-result') return typeof msg.toolName === 'string';
+    if (msg.role === 'tool-confirmation') return typeof msg.pendingTool !== 'undefined';
+    return false;
+  }
+
+  function addMessageHelper(prev: ChatMessage[], msg: ChatMessage): ChatMessage[] {
+    // Always append a new message for each turn, never merge
+    let messageWithId: ChatMessage;
+    if (msg.role === 'ai') {
+      messageWithId = {
+        id: msg.id || generateId(),
+        role: 'ai',
+        message: msg.message,
+        thought: msg.thought,
+        streaming: msg.streaming,
+        timestamp: msg.timestamp
+      };
+    } else if (msg.role === 'user') {
+      messageWithId = {
+        id: msg.id || generateId(),
+        role: 'user',
+        content: msg.content,
+        timestamp: msg.timestamp
+      };
+    } else if (msg.role === 'tool-call') {
+      messageWithId = {
+        id: msg.id || generateId(),
+        role: 'tool-call',
+        toolName: msg.toolName,
+        toolArgs: msg.toolArgs
+      };
+    } else if (msg.role === 'tool-result') {
+      messageWithId = {
+        id: msg.id || generateId(),
+        role: 'tool-result',
+        toolName: msg.toolName,
+        result: msg.result
+      };
+    } else if (msg.role === 'tool-confirmation') {
+      messageWithId = {
+        id: msg.id || generateId(),
+        role: 'tool-confirmation',
+        pendingTool: msg.pendingTool,
+        approved: msg.approved
+      };
+    } else {
+      throw new Error('Unknown message type');
+    }
+    return [...prev, messageWithId].filter(isValidChatMessage) as ChatMessage[];
+  }
+
   const addMessage = (msg: ChatMessage) =>
-    setMessages(prev => {
-      const lastMsg = prev[prev.length - 1];
-      if (
-        msg.role === 'ai' && msg.streaming &&
-        prev.length > 0 &&
-        lastMsg.role === 'ai' &&
-        typeof (lastMsg as any).content === 'string' &&
-        (lastMsg as any).streaming
-      ) {
-        // Update the last streaming AI message instead of appending
-        const updatedLastMsg: ChatMessage = {
-          ...lastMsg,
-          content: (lastMsg as any).content + msg.content
-        };
-        const newMessages: ChatMessage[] = [...prev.slice(0, -1), updatedLastMsg];
-        return newMessages;
-      }
-      // Otherwise, add a new message with an ID if it doesn't have one
-      const messageWithId = msg.id ? msg : { ...msg, id: generateId() };
-      const newMessages: ChatMessage[] = [...prev, messageWithId];
-      return newMessages;
-    });
+    setMessages((prev: any): ChatMessage[] => addMessageHelper(prev, msg));
 
   const updateMessage = (id: string, updates: Partial<ChatMessage>) =>
-    setMessages(prev => 
-      prev.map(msg => msg.id === id ? { ...msg, ...updates } : msg)
+    setMessages((prev: any) => 
+      prev.map((msg: any) => msg.id === id ? { ...msg, ...updates } : msg)
     );
 
   const editUserMessage = (id: string, newContent: string) => {

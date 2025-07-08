@@ -15,13 +15,6 @@ export interface ChatPanelProps {
   app: any; // Obsidian App instance
 }
 
-// Message type compatible with Langchain ChatMessage
-type ChatMessage =
-  | { id: string; role: 'user' | 'ai'; content: string; streaming?: boolean; timestamp?: string }
-  | { id: string; role: 'tool-call'; toolName: string; toolArgs: any }
-  | { id: string; role: 'tool-result'; toolName: string; result: any }
-  | { id: string; role: 'thinking'; content: string; timestamp?: string };
-
 // Icon component for Lucid icons
 const LucidIcon: React.FC<{ name: string; size?: number; className?: string }> = ({ name, size = 16, className = '' }) => {
   const iconRef = useRef<HTMLSpanElement>(null);
@@ -226,13 +219,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     messages, 
     addMessage, 
     updateMessage,
-    editUserMessage,
     removeMessagesAfter,
     addToolCall, 
     addToolResult, 
     clearMessages,
     loadMessages,
-    pendingToolConfirmations,
     addPendingToolConfirmation,
     resolvePendingToolConfirmation
   } = useChatMessages();
@@ -241,7 +232,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [showHistory, setShowHistory] = useState(false);
   const [conversationService] = useState(() => new ConversationService(app));
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
-  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [autoSaveEnabled] = useState(true);
   const [input, setInput] = React.useState('');
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [selectedModel, setSelectedModel] = React.useState<ModelConfig>(MODEL_CONFIGS[0]);
@@ -271,14 +262,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     return thinkingEnabled ? (selectedModel.defaultThinkingBudget || 8192) : 0;
   };
 
-  // Add thinking message to chat
+  // Add thinking message to chat (legacy - will be removed)
   const addThinkingMessage = (content: string) => {
-    addMessage({
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-      role: 'thinking',
-      content,
-      timestamp: formatTimestamp()
-    } as any);
+    // This function is kept for backward compatibility but will be phased out
+    // as we move to streaming both thought and message in a single AI message
+    console.warn('addThinkingMessage is deprecated - use streaming AI messages with thought field instead');
   };
 
   // Tool confirmation handler
@@ -300,9 +288,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       (window as any)[`confirmationResolver_${pendingTool.id}`] = confirmationResolver;
     });
   };
-
-  // Type guard for SystemMessage
-  const isSystemMessage = (msg: any) => msg.role === 'system';
 
   // Auto-resize textarea function
   const autoResizeTextarea = () => {
@@ -598,56 +583,84 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
        } else if ((msg as any).role === 'thinking') {
          // Skip thinking messages - they are display only
          continue;
-       } else if (msg.role === 'user' || msg.role === 'ai') {
+       } else if (msg.role === 'user') {
          conversationHistory.push({
-           role: msg.role === 'user' ? 'user' : 'model',
+           role: 'user',
            parts: [{ text: msg.content }]
+         });
+       } else if (msg.role === 'ai') {
+         conversationHistory.push({
+           role: 'model',
+           parts: [{ text: msg.message }]
          });
        }
      }
     
     
     
-    let messageBuffer = '';
-    let isFirstToken = true;
     let streamingMessageId: string | null = null;
-    let accumulatedContent = '';
-    
+    let lastMessageType: 'thought' | 'message' | null = null;
+
     await streamAIResponse(
       '', // Empty prompt since we're using conversation history
-      (token: string) => {
-        if (isFirstToken) {
-          // Create a new AI message for streaming
+      (tokenOrChunk: any) => {
+        if (typeof tokenOrChunk === 'string') {
+          // Always create a new message for each new message part
           streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-          accumulatedContent = token;
           addMessage({
             id: streamingMessageId,
             role: 'ai',
-            content: token,
+            message: tokenOrChunk,
+            thought: '',
             streaming: true,
             timestamp: formatTimestamp()
           });
-          isFirstToken = false;
-        } else if (streamingMessageId) {
-          // Accumulate the content locally
-          accumulatedContent += token;
-          // Update the existing streaming message with accumulated content
-          updateMessage(streamingMessageId, {
-            content: accumulatedContent,
-            streaming: true
-          });
+          lastMessageType = 'message';
+        } else if (tokenOrChunk && typeof tokenOrChunk === 'object' && Array.isArray(tokenOrChunk.candidates)) {
+          const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.thought === true && part.text) {
+              // Always create a new message for each new thought
+              streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+              addMessage({
+                id: streamingMessageId,
+                role: 'ai',
+                message: '',
+                thought: part.text,
+                streaming: true,
+                timestamp: formatTimestamp()
+              });
+              lastMessageType = 'thought';
+            } else if (part.text) {
+              // Always create a new message for each new message part
+              streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+              addMessage({
+                id: streamingMessageId,
+                role: 'ai',
+                message: part.text,
+                thought: '',
+                streaming: true,
+                timestamp: formatTimestamp()
+              });
+              lastMessageType = 'message';
+            }
+          }
         }
       },
       selectedModel.id,
       (toolName: string, toolArgs: any) => {
+        // Finalize the current streaming AI message before tool call
+        if (streamingMessageId) {
+          updateMessage(streamingMessageId, { streaming: false });
+          streamingMessageId = null;
+        }
         addToolCall(toolName, toolArgs);
       },
       (toolName: string, result: any) => {
         addToolResult(toolName, result);
       },
       (toolResults: string) => {
-        // Tools completed - AI has handled the full tool calling cycle
-        // Mark streaming as complete
+        // Mark streaming as complete for the last message
         if (streamingMessageId) {
           updateMessage(streamingMessageId, {
             streaming: false
@@ -657,9 +670,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       conversationHistory,
       getThinkingBudget(),
       (thoughts: string) => {
-        addThinkingMessage(thoughts);
-        },
-        handleToolConfirmation
+        // Only add non-generic thinking messages as new messages
+        if (!/^🧠 The model used \d+ thinking tokens/.test(thoughts)) {
+          addMessage({
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+            role: 'ai',
+            message: '',
+            thought: thoughts,
+            streaming: false,
+            timestamp: formatTimestamp()
+          });
+        }
+      },
+      handleToolConfirmation
     );
   };
 
@@ -683,19 +706,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     
     const timestamp = formatTimestamp();
     
-    let editedMessageIndex = -1;
     if (editingMessageId) {
       // Update the original user message
       updateMessage(editingMessageId, { content: textToSend, timestamp });
       // Remove all messages after the edited message
       removeMessagesAfter(editingMessageId);
-      editedMessageIndex = messages.findIndex(m => m.id === editingMessageId);
       setEditingMessageId(null); // Clear editing state
     }
 
     // Build conversation history
     const conversationHistory: ConversationMessage[] = [];
-    let addedMessagesCount = 0;
     let systemMessage = SYSTEM_PROMPT;
     if (memoryContent) {
       systemMessage += `\n\n## Assistant Memory\n\nHere is your memory about the user from previous conversations:\n\n${memoryContent}`;
@@ -709,19 +729,23 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       if (msg.role === 'tool-call' || msg.role === 'tool-result') continue;
       if ((msg as any).role === 'thinking') continue;
       if ((msg as any).role === 'tool-confirmation') continue;
-      if (msg.role === 'user' || msg.role === 'ai') {
+      if (msg.role === 'user') {
         // If editing, use the new content for the edited message
         let content = msg.content;
         if (editingMessageId && msg.id === editingMessageId) {
           content = textToSend;
         }
         conversationHistory.push({
-          role: msg.role === 'user' ? 'user' : 'model',
+          role: 'user',
           parts: [{ text: content }]
         });
-        addedMessagesCount++;
         // If editing, stop after the edited message
         if (editingMessageId && msg.id === editingMessageId) break;
+      } else if (msg.role === 'ai') {
+        conversationHistory.push({
+          role: 'model',
+          parts: [{ text: msg.message }]
+        });
       }
     }
     // If not editing, add the new user message to the conversation history
@@ -850,10 +874,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             return (
               <CollapsibleToolResult key={idx} toolName={msg.toolName} result={msg.result} />
             );
-          } else if ((msg as any).role === 'thinking') {
-            return (
-              <CollapsibleThinking key={idx} content={(msg as any).content} />
-            );
           } else if ((msg as any).role === 'tool-confirmation') {
             const confirmationMsg = msg as any;
             const resolver = (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
@@ -879,8 +899,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             );
           }
           
-          const isUser = (msg as any).role === 'user';
-          const isAI = (msg as any).role === 'ai';
+          const isUser = msg.role === 'user';
+          const isAI = msg.role === 'ai';
           
           return (
             <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -906,7 +926,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                     gap: '4px'
                   }} className="message-actions">
                     <button
-                      onClick={() => handleEditMessage(msg.id, (msg as any).content)}
+                      onClick={() => handleEditMessage(msg.id, msg.content)}
                       style={{
                         background: 'var(--background-primary)',
                         border: '1px solid var(--background-modifier-border)',
@@ -940,13 +960,34 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                     </button>
                   </div>
                 )}
-                <div style={{
-                  color: 'var(--text-normal)',
-                  fontSize: '14px',
-                  lineHeight: '1.5'
-                }}>
-                  <ReactMarkdown>{(msg as any).content}</ReactMarkdown>
-                </div>
+                
+                {isUser ? (
+                  <div style={{
+                    color: 'var(--text-normal)',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                  }}>
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : isAI ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Show thinking content if available */}
+                    {msg.thought && (
+                      <CollapsibleThinking content={msg.thought} />
+                    )}
+                    
+                    {/* Show message content */}
+                    {msg.message && (
+                      <div style={{
+                        color: 'var(--text-normal)',
+                        fontSize: '14px',
+                        lineHeight: '1.5'
+                      }}>
+                        <ReactMarkdown>{msg.message}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           );

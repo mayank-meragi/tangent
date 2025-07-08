@@ -135,11 +135,22 @@ export class ConversationService {
 
   // Convert ChatMessage[] to ConversationMessage[] for AI processing
   convertToConversationMessages(messages: ChatMessage[]): ConversationMessage[] {
-    return messages
-      .filter(msg => msg.role === 'user' || msg.role === 'ai')
-      .map(msg => ({
-        role: msg.role === 'ai' ? 'model' : 'user',
-        parts: [{ text: 'content' in msg ? msg.content : '' }]
-      }));
+    const result: ConversationMessage[] = [];
+    
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        result.push({
+          role: 'user',
+          parts: [{ text: msg.content }]
+        });
+      } else if (msg.role === 'ai') {
+        result.push({
+          role: 'model',
+          parts: [{ text: msg.message }]
+        });
+      }
+    }
+    
+    return result;
   }
 } 
