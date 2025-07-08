@@ -131,7 +131,7 @@ export async function streamAIResponse({
       return;
     }
     
-    console.log('[AI DEBUG] Sending conversation to AI with tools and thinking budget. Last message:', userPrompt, 'thinking budget:', thinkingBudget);
+    
     
     // Build config with thinking configuration
     const config: GenerateContentConfig = {
@@ -158,29 +158,45 @@ export async function streamAIResponse({
       parts: msg.parts
     }));
     
-    console.log('[AI DEBUG] Sending full conversation history with', geminiContents.length, 'messages');
-    console.log('[AI DEBUG] Conversation breakdown:', geminiContents.map((msg, i) => `${i+1}. ${msg.role}: ${msg.parts[0]?.text?.substring(0, 50)}...`));
-    
     // Send request with tools and thinking config
-    const response = await genAI.models.generateContent({
+    const response = await genAI.models.generateContentStream({
       model: modelId,
       contents: geminiContents,
       config: config
     });
     
-    console.log('[AI DEBUG] Response received:', response);
+    // Collect the full response from the stream
+    let fullResponse: any = null;
+    let responseText = '';
+    
+    for await (const chunk of response) {
+      fullResponse = chunk; // Always update to the latest chunk
+      // Collect text content from streaming chunks
+      if (chunk.candidates && chunk.candidates[0]?.content?.parts) {
+        for (const part of chunk.candidates[0].content.parts) {
+          if (part.text && (part as any).thought !== true) {
+            responseText += part.text;
+            console.log('[AI DEBUG] Streaming response:', part);
+            onToken(part.text);
+            await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop for UI update
+          }
+        }
+      }
+    }
+    
+    console.log('[AI DEBUG] Full response:', fullResponse);
     
     // Handle thinking tokens if present
-    if (response.usageMetadata?.thoughtsTokenCount && response.usageMetadata.thoughtsTokenCount > 0) {
-      console.log('[AI DEBUG] Thinking tokens:', response.usageMetadata.thoughtsTokenCount);
+    if (fullResponse?.usageMetadata?.thoughtsTokenCount && fullResponse.usageMetadata.thoughtsTokenCount > 0) {
+      
       
       // Extract thinking content if available
       let foundThinkingContent = false;
-      if (response.candidates && response.candidates[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
+      if (fullResponse.candidates && fullResponse.candidates[0]?.content?.parts) {
+        for (const part of fullResponse.candidates[0].content.parts) {
           // Check if this part is marked as thinking content
           if ((part as any).thought === true && part.text && onThinking) {
-            console.log('[AI DEBUG] Found thinking content:', part.text);
+            
             onThinking(part.text);
             foundThinkingContent = true;
           }
@@ -189,18 +205,18 @@ export async function streamAIResponse({
       
       // If no specific thinking content found but we have thinking tokens, show a generic thinking message
       if (onThinking && !foundThinkingContent) {
-        onThinking(`🧠 The model used ${response.usageMetadata.thoughtsTokenCount} thinking tokens to process this request.`);
+        onThinking(`🧠 The model used ${fullResponse.usageMetadata.thoughtsTokenCount} thinking tokens to process this request.`);
       }
     }
     
     // Check if there are function calls
-    if (response.functionCalls && response.functionCalls.length > 0) {
+    if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {
       let hasToolCalls = true;
       
       // Process each function call
-      for (const functionCall of response.functionCalls) {
+      for (const functionCall of fullResponse.functionCalls) {
         const { name, args } = functionCall;
-        console.log('[AI DEBUG] Function call:', name, args);
+        
         
         if (onToolCall && name) {
           onToolCall(name, args || {});
@@ -221,25 +237,25 @@ export async function streamAIResponse({
             requiresConfirmation: true
           };
           
-          console.log('[AI DEBUG] Tool requires confirmation:', pendingTool);
+          
           
           // Request confirmation from user
           const confirmationResult = await onToolConfirmationNeeded(pendingTool);
           
           if (!confirmationResult.approved) {
-            console.log('[AI DEBUG] Tool execution denied by user');
+            
             if (onToken) onToken(`[Tool execution cancelled by user: ${name}]`);
             continue; // Skip this tool execution
           }
           
-          console.log('[AI DEBUG] Tool execution approved by user');
+          
         }
         
         // Execute the tool
         if (name && TOOL_MAP[name]) {
           try {
             const toolResult = await TOOL_MAP[name](app, args || {});
-            console.log('[AI DEBUG] Tool result:', toolResult);
+            
             
             if (onToolResult) {
               onToolResult(name, toolResult);
@@ -261,7 +277,7 @@ export async function streamAIResponse({
               { role: 'user', parts: [{ functionResponse: functionResponse }] }
             ];
             
-            console.log('[AI DEBUG] Sending follow-up with', followUpContents.length, 'messages including tool result');
+            
             
             // Send the tool result back to the model
             const followUpResponse = await genAI.models.generateContent({
@@ -272,7 +288,7 @@ export async function streamAIResponse({
             
             // Handle thinking in follow-up response
             if (followUpResponse.usageMetadata?.thoughtsTokenCount && followUpResponse.usageMetadata.thoughtsTokenCount > 0) {
-              console.log('[AI DEBUG] Follow-up thinking tokens:', followUpResponse.usageMetadata.thoughtsTokenCount);
+              
               
               // Extract thinking content from follow-up response
               let foundFollowUpThinking = false;
@@ -280,7 +296,7 @@ export async function streamAIResponse({
                 for (const part of followUpResponse.candidates[0].content.parts) {
                   // Check if this part is marked as thinking content
                   if ((part as any).thought === true && part.text && onThinking) {
-                    console.log('[AI DEBUG] Found follow-up thinking content:', part.text);
+                    
                     onThinking(part.text);
                     foundFollowUpThinking = true;
                   }
@@ -297,16 +313,16 @@ export async function streamAIResponse({
             if (followUpResponse.candidates && followUpResponse.candidates[0]?.content?.parts) {
               // Extract only non-thinking parts for the regular response
               const responseParts = followUpResponse.candidates[0].content.parts
-                .filter(part => (part as any).thought !== true && part.text)
-                .map(part => part.text)
+                .filter((part: any) => (part as any).thought !== true && part.text)
+                .map((part: any) => part.text)
                 .join('');
               
               if (responseParts) {
-                console.log('[AI DEBUG] Follow-up response (filtered):', responseParts);
+                
                 onToken(responseParts);
               }
             } else if (followUpResponse.text) {
-              console.log('[AI DEBUG] Follow-up response:', followUpResponse.text);
+              
               onToken(followUpResponse.text);
             }
             
@@ -323,21 +339,21 @@ export async function streamAIResponse({
       if (hasToolCalls && onToolsComplete) {
         onToolsComplete('Tools execution completed');
       }
-    } else if (response.candidates && response.candidates[0]?.content?.parts) {
+    } else if (fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
       // Extract only non-thinking parts for the regular response
-      const responseParts = response.candidates[0].content.parts
-        .filter(part => (part as any).thought !== true && part.text)
-        .map(part => part.text)
+      const responseParts = fullResponse.candidates[0].content.parts
+        .filter((part: any) => (part as any).thought !== true && part.text)
+        .map((part: any) => part.text)
         .join('');
       
       if (responseParts) {
-        console.log('[AI DEBUG] Direct text response (filtered):', responseParts);
+        
         onToken(responseParts);
       }
-    } else if (response.text) {
+    } else if (fullResponse?.text) {
       // Fallback: Direct text response
-      console.log('[AI DEBUG] Direct text response:', response.text);
-      onToken(response.text);
+      
+      onToken(fullResponse.text);
     }
     
   } catch (error) {

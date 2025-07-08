@@ -40,7 +40,7 @@ class ChatView extends View {
 
 	renderReact() {
 		const apiKey = this.plugin.settings.geminiApiKey || '';
-		console.log('[AI DEBUG] Loaded API key from settings:', apiKey ? apiKey.slice(0, 4) + '...' : '(none)');
+		
 		this.root = createRoot(this.containerEl);
 		this.root.render(
 			<ChatPanelWithProvider 
@@ -70,7 +70,7 @@ class ChatView extends View {
 		onThinking?: (thoughts: string) => void,
 		onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>
 	) => {
-		console.log('[AI DEBUG] streamAIResponse called with:', { prompt, modelId, apiKey: (this.plugin.settings.geminiApiKey || '').slice(0, 4) + '...', thinkingBudget });
+		
 		
 		// Use conversation history if provided, otherwise build from prompt
 		const messages: ConversationMessage[] = conversationHistory && conversationHistory.length > 0 
@@ -154,7 +154,7 @@ export default class MyPlugin extends Plugin {
 			name: 'Sample editor command',
 			editorCallback: (editor: Editor, ctx: MarkdownView | any) => {
 				if (ctx instanceof MarkdownView) {
-					console.log(editor.getSelection());
+					
 					editor.replaceSelection('Sample Editor Command');
 				}
 			},

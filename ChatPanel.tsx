@@ -15,10 +15,10 @@ export interface ChatPanelProps {
 
 // Message type compatible with Langchain ChatMessage
 type ChatMessage =
-  | { role: 'user' | 'ai'; content: string; streaming?: boolean; timestamp?: string }
-  | { role: 'tool-call'; toolName: string; toolArgs: any }
-  | { role: 'tool-result'; toolName: string; result: any }
-  | { role: 'thinking'; content: string; timestamp?: string };
+  | { id: string; role: 'user' | 'ai'; content: string; streaming?: boolean; timestamp?: string }
+  | { id: string; role: 'tool-call'; toolName: string; toolArgs: any }
+  | { id: string; role: 'tool-result'; toolName: string; result: any }
+  | { id: string; role: 'thinking'; content: string; timestamp?: string };
 
 // Icon component for Lucid icons
 const LucidIcon: React.FC<{ name: string; size?: number; className?: string }> = ({ name, size = 16, className = '' }) => {
@@ -223,6 +223,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const { 
     messages, 
     addMessage, 
+    updateMessage,
+    editUserMessage,
+    removeMessagesAfter,
     addToolCall, 
     addToolResult, 
     clearMessages,
@@ -241,6 +244,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
   const [memoryContent, setMemoryContent] = React.useState<string>('');
   const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
+  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessagesRef = useRef(messages);
   const justSelectedFileRef = useRef(false);
@@ -261,6 +265,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // Add thinking message to chat
   const addThinkingMessage = (content: string) => {
     addMessage({
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
       role: 'thinking',
       content,
       timestamp: formatTimestamp()
@@ -413,6 +418,27 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     }
   };
 
+  // Handle editing a user message
+  const handleEditMessage = (messageId: string, currentContent: string) => {
+    // Remove file context from the content if it exists
+    const cleanContent = currentContent.replace(/\n\n\*📎 Context: .*\*$/, '');
+    setInput(cleanContent);
+    
+    // Store the message ID for editing - we'll remove messages only when sending
+    setEditingMessageId(messageId);
+    
+    // Focus the textarea
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 100);
+  };
+
+  // Handle canceling edit mode
+  const handleCancelEdit = () => {
+    setInput('');
+    setEditingMessageId(null);
+  };
+
   // Handle input change for @ mentions
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -526,31 +552,36 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
        }
      }
     
-    console.log('[AI DEBUG] Conversation history length:', conversationHistory.length);
+    
     
     let messageBuffer = '';
     let isFirstToken = true;
+    let streamingMessageId: string | null = null;
+    let accumulatedContent = '';
     
     await streamAIResponse(
       '', // Empty prompt since we're using conversation history
       (token: string) => {
         if (isFirstToken) {
-          // Add initial AI message
+          // Create a new AI message for streaming
+          streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+          accumulatedContent = token;
           addMessage({
+            id: streamingMessageId,
             role: 'ai',
             content: token,
             streaming: true,
             timestamp: formatTimestamp()
           });
           isFirstToken = false;
-        } else {
-          // Update the last AI message
-          const updatedMessages = [...currentMessagesRef.current];
-          const lastMessage = updatedMessages[updatedMessages.length - 1];
-          if (lastMessage && lastMessage.role === 'ai') {
-            lastMessage.content += token;
-            // Don't call setMessages directly here as it's managed by context
-          }
+        } else if (streamingMessageId) {
+          // Accumulate the content locally
+          accumulatedContent += token;
+          // Update the existing streaming message with accumulated content
+          updateMessage(streamingMessageId, {
+            content: accumulatedContent,
+            streaming: true
+          });
         }
       },
       selectedModel.id,
@@ -562,7 +593,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       },
       (toolResults: string) => {
         // Tools completed - AI has handled the full tool calling cycle
-        console.log('[AI DEBUG] Tool results completed:', toolResults);
+        // Mark streaming as complete
+        if (streamingMessageId) {
+          updateMessage(streamingMessageId, {
+            streaming: false
+          });
+        }
       },
       conversationHistory,
       getThinkingBudget(),
@@ -593,171 +629,74 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     
     const timestamp = formatTimestamp();
     
-    // Add current file to context on first message
-    if (messages.length === 0) {
-      // Reset the flag for fresh conversations
-      setHasUserRemovedCurrentFile(false);
-      await getCurrentFileContext();
+    let editedMessageIndex = -1;
+    if (editingMessageId) {
+      // Update the original user message
+      updateMessage(editingMessageId, { content: textToSend, timestamp });
+      // Remove all messages after the edited message
+      removeMessagesAfter(editingMessageId);
+      editedMessageIndex = messages.findIndex(m => m.id === editingMessageId);
+      setEditingMessageId(null); // Clear editing state
     }
-    
-    // Clear input early
-    setInput('');
-    
-    setIsStreaming(true);
-    
-        // Build conversation history
+
+    // Build conversation history
     const conversationHistory: ConversationMessage[] = [];
-    
-    console.log('[CONVERSATION] Starting to build conversation history...');
-    console.log('[CONVERSATION] Total messages in chat:', messages.length);
-    
-    // Add system message with memory content
+    let addedMessagesCount = 0;
     let systemMessage = SYSTEM_PROMPT;
     if (memoryContent) {
       systemMessage += `\n\n## Assistant Memory\n\nHere is your memory about the user from previous conversations:\n\n${memoryContent}`;
-      console.log('[CONVERSATION] Added memory content to system message');
     }
     conversationHistory.push({
       role: 'system',
       parts: [{ text: systemMessage }]
     });
-    console.log('[CONVERSATION] Added system message');
-    
-    // Add messages from context (existing messages)
-    let addedMessagesCount = 0;
-    for (const msg of messages) {
-      if (msg.role === 'tool-call' || msg.role === 'tool-result') {
-        // Skip tool messages - they are handled separately
-        console.log('[CONVERSATION] Skipping tool message:', msg.role);
-        continue;
-      } else if ((msg as any).role === 'thinking') {
-        // Skip thinking messages - they are display only
-        console.log('[CONVERSATION] Skipping thinking message');
-        continue;
-      } else if ((msg as any).role === 'tool-confirmation') {
-        // Skip confirmation messages - they are display only
-        console.log('[CONVERSATION] Skipping confirmation message');
-        continue;
-      } else if (msg.role === 'user' || msg.role === 'ai') {
-        const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
-        console.log(`[CONVERSATION] Adding ${msg.role} message:`, preview);
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role === 'tool-call' || msg.role === 'tool-result') continue;
+      if ((msg as any).role === 'thinking') continue;
+      if ((msg as any).role === 'tool-confirmation') continue;
+      if (msg.role === 'user' || msg.role === 'ai') {
+        // If editing, use the new content for the edited message
+        let content = msg.content;
+        if (editingMessageId && msg.id === editingMessageId) {
+          content = textToSend;
+        }
         conversationHistory.push({
           role: msg.role === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.content }]
+          parts: [{ text: content }]
         });
         addedMessagesCount++;
+        // If editing, stop after the edited message
+        if (editingMessageId && msg.id === editingMessageId) break;
       }
     }
-    console.log('[CONVERSATION] Added', addedMessagesCount, 'existing messages to history');
-    
-        // Add the current message if not hidden
-    if (!hideMessage) {
+    // If not editing, add the new user message to the conversation history
+    if (!editingMessageId && !hideMessage) {
       let aiMessage = textToSend;
-      let displayMessage = textToSend;
-      
-      // Add file context for AI (but not for display)
       if (selectedFiles.length > 0) {
-        console.log('[CONVERSATION] Adding file context for', selectedFiles.length, 'files:', selectedFiles.map(f => f.name));
         const fileContext = selectedFiles.map(file => `## ${file.name}\n\n${file.content}`).join('\n\n');
         aiMessage = `${fileContext}\n\n---\n\n${textToSend}`;
-        // Display message shows just the text with a small context indicator
-        const fileNames = selectedFiles.map(f => f.name).join(', ');
-        displayMessage = `${textToSend}\n\n*📎 Context: ${fileNames}*`;
-        console.log('[CONVERSATION] AI message length with context:', aiMessage.length, 'characters');
-      } else {
-        console.log('[CONVERSATION] No file context added');
       }
-      
-      const currentMessagePreview = aiMessage.length > 100 ? aiMessage.substring(0, 100) + '...' : aiMessage;
-      console.log('[CONVERSATION] Adding current user message:', currentMessagePreview);
-      
-      // Add to conversation history (with file context for AI)
       conversationHistory.push({
         role: 'user',
         parts: [{ text: aiMessage }]
       });
-      
       // Add to chat UI (display version without file content)
       addMessage({
+        id: Date.now().toString(36) + Math.random().toString(36).substr(2),
         role: 'user',
-        content: displayMessage,
+        content: textToSend,
         timestamp
       });
-      
-      if (selectedFiles.length > 0) {
-        console.log('[CONVERSATION] 👀 What user sees in chat:', displayMessage);
-        console.log('[CONVERSATION] 🤖 What AI receives (first 200 chars):', aiMessage.substring(0, 200) + (aiMessage.length > 200 ? '...' : ''));
-      }
     }
-    
-    console.log('[CONVERSATION] Final conversation history length:', conversationHistory.length);
-    console.log('[CONVERSATION] Final history breakdown:');
-    conversationHistory.forEach((msg, index) => {
-      const preview = msg.parts[0]?.text ? 
-        (msg.parts[0].text.length > 50 ? msg.parts[0].text.substring(0, 50) + '...' : msg.parts[0].text) 
-        : 'No text';
-      console.log(`  ${index + 1}. ${msg.role}: ${preview}`);
-    });
-    console.log('[CONVERSATION] Sending to AI...');
-    
-    let messageBuffer = '';
-    let isFirstToken = true;
-    
+
+    setIsStreaming(true);
     try {
-      await streamAIResponse(
-        textToSend,
-        (token: string) => {
-          if (isFirstToken) {
-            // Add initial AI message
-            addMessage({
-              role: 'ai',
-              content: token,
-              streaming: true,
-              timestamp: formatTimestamp()
-            });
-            isFirstToken = false;
-          } else {
-            // Update the last AI message
-            const updatedMessages = [...currentMessagesRef.current];
-            const lastMessage = updatedMessages[updatedMessages.length - 1];
-            if (lastMessage && lastMessage.role === 'ai') {
-              lastMessage.content += token;
-              // Don't call setMessages directly here as it's managed by context
-            }
-          }
-        },
-        selectedModel.id,
-        (toolName: string, toolArgs: any) => {
-          addToolCall(toolName, toolArgs);
-        },
-        (toolName: string, result: any) => {
-          addToolResult(toolName, result);
-          // Refresh memory content if memory was updated
-          if (toolName === 'updateMemory') {
-            setTimeout(() => loadMemoryContent(), 100); // Small delay to ensure file is written
-          }
-        },
-        (toolResults: string) => {
-          // Tools completed - AI has handled the full tool calling cycle
-          console.log('[AI DEBUG] Tool results completed:', toolResults);
-        },
-        conversationHistory,
-        getThinkingBudget(),
-        (thoughts: string) => {
-          addThinkingMessage(thoughts);
-        },
-        handleToolConfirmation
-      );
+      await continueAIResponse(conversationHistory, conversationHistory.length);
     } catch (error) {
       console.error('Error sending message:', error);
-      addMessage({
-        role: 'ai',
-        content: `Error: ${error}`,
-        timestamp: formatTimestamp()
-      });
     } finally {
       setIsStreaming(false);
-      console.log('[CONVERSATION] ✅ Message sending completed');
     }
   };
 
@@ -864,15 +803,62 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           const isAI = (msg as any).role === 'ai';
           
           return (
-            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{
-                backgroundColor: isUser ? 'var(--background-secondary)' : 'transparent',
-                padding: isUser ? '12px 16px' : '0',
-                borderRadius: isUser ? '8px' : '0',
-                alignSelf: isUser ? 'flex-end' : 'flex-start',
-                maxWidth: isUser ? '80%' : '100%',
-                border: isUser ? '1px solid var(--background-modifier-border)' : 'none'
-              }}>
+            <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div 
+                className={isUser ? 'user-message-container' : ''}
+                style={{
+                  backgroundColor: isUser ? 'var(--background-secondary)' : 'transparent',
+                  padding: isUser ? '12px 16px' : '0',
+                  borderRadius: isUser ? '8px' : '0',
+                  alignSelf: isUser ? 'flex-end' : 'flex-start',
+                  maxWidth: isUser ? '80%' : '100%',
+                  border: isUser ? '1px solid var(--background-modifier-border)' : 'none',
+                  position: 'relative'
+                }}
+              >
+                {isUser && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    display: 'flex',
+                    gap: '4px'
+                  }} className="message-actions">
+                    <button
+                      onClick={() => handleEditMessage(msg.id, (msg as any).content)}
+                      style={{
+                        background: 'var(--background-primary)',
+                        border: '1px solid var(--background-modifier-border)',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        minWidth: '24px',
+                        minHeight: '24px',
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      title="Edit message"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--background-secondary)';
+                        e.currentTarget.style.borderColor = 'var(--interactive-accent)';
+                        e.currentTarget.style.color = 'var(--interactive-accent)';
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'var(--background-primary)';
+                        e.currentTarget.style.borderColor = 'var(--background-modifier-border)';
+                        e.currentTarget.style.color = 'var(--text-muted)';
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
+                    >
+                      <LucidIcon name="edit-3" size={12} />
+                    </button>
+                  </div>
+                )}
                 <div style={{
                   color: 'var(--text-normal)',
                   fontSize: '14px',
@@ -955,7 +941,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           <textarea
             ref={textareaRef}
             value={input}
-            placeholder="Type a message... (use @ to mention files)"
+            placeholder={editingMessageId ? "Edit your message..." : "Type a message... (use @ to mention files)"}
             disabled={isStreaming}
             onChange={handleInputChange}
             onKeyDown={e => { 
@@ -979,19 +965,25 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               } else if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
+              } else if (e.key === 'Escape' && editingMessageId) {
+                e.preventDefault();
+                handleCancelEdit();
               }
             }}
             style={{
               width: '100%',
               minHeight: '44px',
               padding: '12px 8px',
-              border: 'none',
+              border: editingMessageId ? '2px solid var(--interactive-accent)' : '1px solid var(--background-modifier-border)',
               backgroundColor: 'transparent',
               color: 'var(--text-normal)',
               fontSize: '14px',
               outline: 'none',
               resize: 'none',
-              overflowY: 'hidden'
+              overflowY: 'hidden',
+              borderRadius: '8px',
+              boxSizing: 'border-box',
+              transition: 'border-color 0.2s'
             }}
           />
           

@@ -200,33 +200,89 @@ If your plugin does not need CSS, delete this file.
 	color: var(--interactive-accent-hover);
 }
 
-/* File context display */
-.tangent-file-context {
-	padding: 8px 12px;
-	background-color: var(--background-secondary);
-	border-bottom: 1px solid var(--background-modifier-border);
-	font-size: 12px;
+/* Message edit functionality */
+.tangent-chat-panel-root .message-actions {
+	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
+	pointer-events: none;
+}
+
+.tangent-chat-panel-root .message-actions button {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 6px;
 	color: var(--text-muted);
+	cursor: pointer;
+	transition: all 0.2s ease-in-out;
+	pointer-events: auto;
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	justify-content: center;
+	min-width: 24px;
+	min-height: 24px;
+}
+
+.tangent-chat-panel-root .message-actions button:hover {
+	background: var(--background-secondary);
+	border-color: var(--interactive-accent);
+	color: var(--interactive-accent);
+	transform: scale(1.05);
+}
+
+/* Show message actions on hover - more specific selectors */
+.tangent-chat-panel-root div[style*="alignSelf: flex-end"]:hover .message-actions,
+.tangent-chat-panel-root div[style*="align-self: flex-end"]:hover .message-actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Alternative hover approach for user messages */
+.tangent-chat-panel-root div[style*="backgroundColor: var(--background-secondary)"]:hover .message-actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* User message container hover effect */
+.tangent-chat-panel-root .user-message-container:hover .message-actions {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+/* Edit mode indicator */
+.tangent-chat-panel-root .edit-mode-indicator {
+	animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(-10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* File context styles */
+.tangent-file-context {
+	background: var(--background-primary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	margin: 2px 0;
+	font-size: 0.75em;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
 .tangent-file-context-remove {
-	margin-left: auto;
 	background: none;
 	border: none;
 	color: var(--text-muted);
 	cursor: pointer;
-	padding: 2px 4px;
+	padding: 2px;
 	border-radius: 3px;
-	font-size: 14px;
-	font-weight: bold;
-	opacity: 0.7;
-	transition: opacity 0.2s, background-color 0.2s;
+	transition: all 0.2s ease-in-out;
 }
 
 .tangent-file-context-remove:hover {
-	opacity: 1;
-	background-color: var(--background-modifier-hover);
+	background: var(--background-secondary);
+	color: var(--text-error);
 }
