@@ -4,40 +4,19 @@ import { MODEL_CONFIGS, ModelConfig } from './modelConfigs';
 import { useChatMessages, ChatMessagesProvider } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
 import { SYSTEM_PROMPT } from './systemPrompt';
-import { setIcon } from 'obsidian';
 import { PendingToolCall, ToolConfirmationResult, readMemory } from './tools';
 import { ConversationService, Conversation } from './conversationService';
 import HistoryTab from './HistoryTab';
+import IconButton from './src/components/IconButton';
+import ChatMessageContainer from './src/components/ChatMessageContainer';
+import LucidIcon from './src/components/LucidIcon';
+import AIMessage from './src/components/AIMessage';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
   streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>) => Promise<void>;
   app: any; // Obsidian App instance
 }
-
-// Icon component for Lucid icons
-const LucidIcon: React.FC<{ name: string; size?: number; className?: string }> = ({ name, size = 16, className = '' }) => {
-  const iconRef = useRef<HTMLSpanElement>(null);
-  
-  useEffect(() => {
-    if (iconRef.current) {
-      setIcon(iconRef.current, name);
-    }
-  }, [name]);
-  
-  return (
-    <span 
-      ref={iconRef}
-      className={className}
-      style={{ 
-        display: 'inline-flex', 
-        alignItems: 'center', 
-        width: size, 
-        height: size 
-      }}
-    />
-  );
-};
 
 // File list result renderer
 const FileListResult: React.FC<{ files: { name: string; type: 'file' | 'folder'; path: string }[] }> = ({ files }) => (
@@ -88,31 +67,6 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
           ) : (
             <ReactMarkdown>{typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}</ReactMarkdown>
           )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Collapsible Thinking Display
-const CollapsibleThinking: React.FC<{ content: string }> = ({ content }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="tangent-chat-thinking" style={{ 
-      padding: '8px 12px', 
-      backgroundColor: 'var(--background-secondary)',
-      borderRadius: '6px',
-      border: '1px solid var(--background-modifier-border)',
-      marginBottom: '8px'
-    }}>
-      <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setOpen(o => !o)}>
-        <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
-        <LucidIcon name="brain" size={12} />
-        <b style={{ color: 'var(--text-accent)' }}>Thinking...</b>
-      </span>
-      {open && (
-        <div style={{ marginTop: 8, fontSize: '0.9em', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          <ReactMarkdown>{content}</ReactMarkdown>
         </div>
       )}
     </div>
@@ -592,46 +546,64 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     
     
     let streamingMessageId: string | null = null;
+    let lastStreamingMessage = '';
+    let streamingThinkingId: string | null = null;
+    let lastStreamingThought = '';
 
     await streamAIResponse(
       '', // Empty prompt since we're using conversation history
       (tokenOrChunk: any) => {
         if (typeof tokenOrChunk === 'string') {
-          // Always create a new message for each new message part
-          streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-          addMessage({
-            id: streamingMessageId,
-            role: 'ai',
-            message: tokenOrChunk,
-            thought: '',
-            streaming: true,
-            timestamp: formatTimestamp()
-          });
+          if (streamingMessageId) {
+            lastStreamingMessage += tokenOrChunk;
+            updateMessage(streamingMessageId, { message: lastStreamingMessage });
+          } else {
+            streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+            lastStreamingMessage = tokenOrChunk;
+            addMessage({
+              id: streamingMessageId,
+              role: 'ai',
+              message: lastStreamingMessage,
+              thought: '',
+              streaming: true,
+              timestamp: formatTimestamp()
+            });
+          }
         } else if (tokenOrChunk && typeof tokenOrChunk === 'object' && Array.isArray(tokenOrChunk.candidates)) {
           const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
           for (const part of parts) {
             if (part.thought === true && part.text) {
-              // Always create a new message for each new thought
-              streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-              addMessage({
-                id: streamingMessageId,
-                role: 'ai',
-                message: '',
-                thought: part.text,
-                streaming: true,
-                timestamp: formatTimestamp()
-              });
+              if (streamingThinkingId) {
+                lastStreamingThought += part.text;
+                updateMessage(streamingThinkingId, { thought: lastStreamingThought });
+              } else {
+                streamingThinkingId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+                lastStreamingThought = part.text;
+                addMessage({
+                  id: streamingThinkingId,
+                  role: 'ai',
+                  message: '',
+                  thought: lastStreamingThought,
+                  streaming: true,
+                  timestamp: formatTimestamp()
+                });
+              }
             } else if (part.text) {
-              // Always create a new message for each new message part
-              streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-              addMessage({
-                id: streamingMessageId,
-                role: 'ai',
-                message: part.text,
-                thought: '',
-                streaming: true,
-                timestamp: formatTimestamp()
-              });
+              if (streamingMessageId) {
+                lastStreamingMessage += part.text;
+                updateMessage(streamingMessageId, { message: lastStreamingMessage });
+              } else {
+                streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+                lastStreamingMessage = part.text;
+                addMessage({
+                  id: streamingMessageId,
+                  role: 'ai',
+                  message: lastStreamingMessage,
+                  thought: '',
+                  streaming: true,
+                  timestamp: formatTimestamp()
+                });
+              }
             }
           }
         }
@@ -642,6 +614,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         if (streamingMessageId) {
           updateMessage(streamingMessageId, { streaming: false });
           streamingMessageId = null;
+          lastStreamingMessage = '';
+        }
+        if (streamingThinkingId) {
+          updateMessage(streamingThinkingId, { streaming: false });
+          streamingThinkingId = null;
+          lastStreamingThought = '';
         }
         addToolCall(toolName, toolArgs);
       },
@@ -654,6 +632,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           updateMessage(streamingMessageId, {
             streaming: false
           });
+          streamingMessageId = null;
+          lastStreamingMessage = '';
+        }
+        if (streamingThinkingId) {
+          updateMessage(streamingThinkingId, { streaming: false });
+          streamingThinkingId = null;
+          lastStreamingThought = '';
         }
       },
       conversationHistory,
@@ -661,14 +646,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       (thoughts: string) => {
         // Only add non-generic thinking messages as new messages
         if (!/^🧠 The model used \d+ thinking tokens/.test(thoughts)) {
-          addMessage({
-            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-            role: 'ai',
-            message: '',
-            thought: thoughts,
-            streaming: false,
-            timestamp: formatTimestamp()
-          });
+          if (streamingThinkingId) {
+            lastStreamingThought += thoughts;
+            updateMessage(streamingThinkingId, { thought: lastStreamingThought });
+          } else {
+            streamingThinkingId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+            lastStreamingThought = thoughts;
+            addMessage({
+              id: streamingThinkingId,
+              role: 'ai',
+              message: '',
+              thought: lastStreamingThought,
+              streaming: true,
+              timestamp: formatTimestamp()
+            });
+          }
         }
       },
       handleToolConfirmation
@@ -805,44 +797,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           TANGENT
         </h2>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button
+          <IconButton
+            icon={<LucidIcon name="history" size={16} />}
+            ariaLabel="Show history"
             onClick={() => setShowHistory(!showHistory)}
-            style={{
-              background: 'none',
-              border: 'none',
-              boxShadow: 'none',
-              outline: 'none',
-              padding: 0,
-              margin: 0,
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              borderRadius: 0
-            }}
             title="Conversation history"
-          >
-            <LucidIcon name="history" size={16} />
-          </button>
-          <button
+          />
+          <IconButton
+            icon={<LucidIcon name="refresh-cw" size={16} />}
+            ariaLabel="New chat"
             onClick={startNewConversation}
-            style={{
-              background: 'none',
-              border: 'none',
-              boxShadow: 'none',
-              outline: 'none',
-              padding: 0,
-              margin: 0,
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              borderRadius: 0
-            }}
             title="New chat"
-          >
-            <LucidIcon name="refresh-cw" size={16} />
-          </button>
+          />
         </div>
       </div>
       
@@ -901,94 +867,70 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           const isUser = msg.role === 'user';
           const isAI = msg.role === 'ai';
           
+          // Only pass timestamp if present (user or ai message)
+          const timestamp = (isUser || isAI) ? msg.timestamp : undefined;
+          
           return (
-            <div key={msg.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div 
-                className={isUser ? 'user-message-container' : ''}
-                style={{
-                  backgroundColor: isUser ? 'var(--background-secondary)' : 'transparent',
-                  padding: isUser ? '1px 16px' : '0',
-                  borderRadius: isUser ? '8px' : '0',
-                  alignSelf: isUser ? 'flex-end' : 'flex-start',
-                  maxWidth: isUser ? '100%' : '100%',
-                  width: isUser ? '100%' : undefined,
-                  border: isUser ? '1px solid var(--background-modifier-border)' : 'none',
-                  position: 'relative'
-                }}
-              >
-                {isUser && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '4px',
-                    right: '4px',
-                    display: 'flex',
-                    gap: '4px'
-                  }} className="message-actions">
-                    <button
-                      onClick={() => handleEditMessage(msg.id, msg.content)}
-                      style={{
-                        background: 'var(--background-primary)',
-                        border: '1px solid var(--background-modifier-border)',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        padding: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '4px',
-                        fontSize: '12px',
-                        minWidth: '24px',
-                        minHeight: '24px',
-                        transition: 'all 0.2s ease-in-out'
-                      }}
-                      title="Edit message"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--background-secondary)';
-                        e.currentTarget.style.borderColor = 'var(--interactive-accent)';
-                        e.currentTarget.style.color = 'var(--interactive-accent)';
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'var(--background-primary)';
-                        e.currentTarget.style.borderColor = 'var(--background-modifier-border)';
-                        e.currentTarget.style.color = 'var(--text-muted)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }}
-                    >
-                      <LucidIcon name="edit-3" size={12} />
-                    </button>
-                  </div>
-                )}
-                
-                {isUser ? (
-                  <div style={{
-                    color: 'var(--text-normal)',
-                    fontSize: '14px',
-                    lineHeight: '1.5'
-                  }}>
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : isAI ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {/* Show thinking content if available */}
-                    {msg.thought && (
-                      <CollapsibleThinking content={msg.thought} />
-                    )}
-                    
-                    {/* Show message content */}
-                    {msg.message && (
-                      <div style={{
-                        color: 'var(--text-normal)',
-                        fontSize: '14px',
-                        lineHeight: '1.5'
-                      }}>
-                        <ReactMarkdown>{msg.message}</ReactMarkdown>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
+            <ChatMessageContainer
+              key={msg.id || idx}
+              isUser={isUser}
+              {...(timestamp ? { timestamp } : {})}
+            >
+              {isUser && (
+                <div style={{
+                  position: 'absolute',
+                  top: '4px',
+                  right: '4px',
+                  display: 'flex',
+                  gap: '4px'
+                }} className="message-actions">
+                  <button
+                    onClick={() => handleEditMessage(msg.id, msg.content)}
+                    style={{
+                      background: 'var(--background-primary)',
+                      border: '1px solid var(--background-modifier-border)',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      minWidth: '24px',
+                      minHeight: '24px',
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                    title="Edit message"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'var(--background-secondary)';
+                      e.currentTarget.style.borderColor = 'var(--interactive-accent)';
+                      e.currentTarget.style.color = 'var(--interactive-accent)';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'var(--background-primary)';
+                      e.currentTarget.style.borderColor = 'var(--background-modifier-border)';
+                      e.currentTarget.style.color = 'var(--text-muted)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    <LucidIcon name="edit-3" size={12} />
+                  </button>
+                </div>
+              )}
+              {isUser ? (
+                <div style={{
+                  color: 'var(--text-normal)',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              ) : isAI ? (
+                <AIMessage thought={msg.thought} message={msg.message} />
+              ) : null}
+            </ChatMessageContainer>
           );
         })}
         <div ref={messagesEndRef} />
@@ -1268,28 +1210,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                   <LucidIcon name="x" size={14} />
                 </button>
               )}
-              <button
+              <IconButton
+                icon={<LucidIcon name="send" size={18} />}
+                ariaLabel="Send"
                 onClick={() => sendMessage()}
                 disabled={isStreaming}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  boxShadow: 'none',
-                  outline: 'none',
-                  padding: 0,
-                  margin: 0,
-                  color: 'var(--color-accent)',
-                  cursor: isStreaming ? 'not-allowed' : 'pointer',
-                  opacity: isStreaming ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  borderRadius: 0
-                }}
-                aria-label="Send"
-              >
-                <LucidIcon name="send" size={18} />
-              </button>
+                title="Send"
+                color="var(--color-accent)"
+              />
             </div>
           </div>
         </div>
