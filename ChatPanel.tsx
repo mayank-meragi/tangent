@@ -11,6 +11,7 @@ import IconButton from './src/components/IconButton';
 import ChatMessageContainer from './src/components/ChatMessageContainer';
 import LucidIcon from './src/components/LucidIcon';
 import AIMessage from './src/components/AIMessage';
+import ChatInputContainer from './src/components/ChatInputContainer';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -202,7 +203,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessagesRef = useRef(messages);
   const justSelectedFileRef = useRef(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Update thinking enabled state when model changes
   useEffect(() => {
@@ -936,290 +937,33 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Selected Files */}
-      {selectedFiles.length > 0 && (
-        <div style={{
-          padding: '8px 16px',
-          borderTop: '1px solid var(--background-modifier-border)',
-          backgroundColor: 'var(--background-primary)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}>
-          {selectedFiles.map((file, index) => (
-            <div key={file.path} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: 'var(--text-muted)',
-                fontSize: '12px'
-              }}>
-                <LucidIcon name="file-text" size={14} />
-                <span>{file.name}</span>
-                {file.isCurrentFile && (
-                  <span style={{ color: 'var(--text-faint)' }}>(Current file)</span>
-                )}
-              </div>
-              <button
-                onClick={() => removeFileFromContext(file.path)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  padding: '2px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  opacity: 0.8
-                }}
-                title="Remove file from context"
-              >
-                <LucidIcon name="x" size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-            {/* Input Area */}
+      {/* Input Area */}
       <div style={{
         padding: '0',
         borderTop: '1px solid var(--background-modifier-border)',
         backgroundColor: 'var(--background-primary)'
       }}>
-        <div style={{ 
-          position: 'relative',
-          border: '1px solid var(--background-modifier-border)',
-          borderRadius: '8px',
-          backgroundColor: 'var(--background-secondary)',
-          paddingBottom: '40px', // Space for controls at bottom
-          margin: '8px'
-        }}>
-          <textarea
-            ref={textareaRef}
-            value={input}
-            placeholder={editingMessageId ? "Edit your message..." : "Type a message... (use @ to mention files)"}
-            disabled={isStreaming}
-            onChange={handleInputChange}
-            onKeyDown={e => { 
-              if (showFileDropdown) {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setSelectedFileIndex(prev => 
-                    prev < filteredFiles.length - 1 ? prev + 1 : prev
-                  );
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setSelectedFileIndex(prev => prev > 0 ? prev - 1 : prev);
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (filteredFiles[selectedFileIndex]) {
-                    handleFileSelect(filteredFiles[selectedFileIndex]);
-                  }
-                } else if (e.key === 'Escape') {
-                  setShowFileDropdown(false);
-                }
-              } else if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              } else if (e.key === 'Escape' && editingMessageId) {
-                e.preventDefault();
-                handleCancelEdit();
-              }
-            }}
-            style={{
-              width: '100%',
-              minHeight: '44px',
-              padding: '12px 8px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: 'var(--text-normal)',
-              fontSize: '14px',
-              outline: 'none',
-              resize: 'none',
-              overflowY: 'hidden',
-              borderRadius: '8px',
-              boxSizing: 'border-box'
-            }}
-          />
-          
-          {/* File dropdown */}
-          {showFileDropdown && (
-            <div style={{
-              position: 'absolute',
-              bottom: '100%',
-              left: 0,
-              right: 0,
-              maxHeight: '200px',
-              overflowY: 'auto',
-              backgroundColor: 'var(--background-primary)',
-              border: '1px solid var(--background-modifier-border)',
-              borderRadius: '8px',
-              zIndex: 1000,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              marginBottom: '8px'
-            }}>
-              {filteredFiles.length > 0 ? (
-                filteredFiles.map((file, index) => (
-                  <div
-                    key={file.path}
-                    style={{
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      borderBottom: index < filteredFiles.length - 1 ? '1px solid var(--background-modifier-border)' : 'none',
-                      fontSize: '13px',
-                      backgroundColor: index === selectedFileIndex ? 'var(--background-modifier-hover)' : 'transparent',
-                      color: 'var(--text-normal)'
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleFileSelect(file);
-                    }}
-                    onMouseEnter={() => {
-                      setSelectedFileIndex(index);
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <LucidIcon name="file-text" size={12} />
-                      {file.name}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                  No files found
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Bottom controls */}
-          <div style={{
-            position: 'absolute',
-            bottom: '2px',
-            left: '8px',
-            right: '8px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            pointerEvents: 'none' // Allow clicks to pass through to children
-          }}>
-            {/* Model Selection and Thinking Budget - Bottom Left */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', pointerEvents: 'auto' }}>
-              <select
-                value={selectedModel.id}
-                onChange={e => {
-                  const model = MODEL_CONFIGS.find(m => m.id === e.target.value);
-                  if (model) setSelectedModel(model);
-                }}
-                disabled={isStreaming}
-                aria-label="Select AI model"
-                style={{
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-faint)',
-                  border: 'none',
-                  borderWidth: '0',
-                  borderStyle: 'none',
-                  boxShadow: 'none',
-                  fontSize: '12px',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  WebkitAppearance: 'none',
-                  transition: 'color 0.2s ease'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.color = 'var(--text-muted)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.color = 'var(--text-faint)';
-                }}
-              >
-                {MODEL_CONFIGS.map(model => (
-                  <option key={model.id} value={model.id}>
-                    {model.label}
-                  </option>
-                ))}
-              </select>
-              
-              {/* Thinking Toggle Control */}
-              {selectedModel.supportsThinking && (
-                <button
-                  onClick={() => setThinkingEnabled(!thinkingEnabled)}
-                  disabled={isStreaming}
-                  aria-label={thinkingEnabled ? "Disable thinking" : "Enable thinking"}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    backgroundColor: 'transparent',
-                    color: thinkingEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                    borderRadius: '4px',
-                    transition: 'color 0.2s ease',
-                    opacity: isStreaming ? 0.6 : 1
-                  }}
-                  onMouseEnter={e => {
-                    if (!isStreaming) {
-                      e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                  title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
-                >
-                  <LucidIcon name="brain" size={10} />
-                  <span>{thinkingEnabled ? "Thinking" : "No thinking"}</span>
-                </button>
-              )}
-            </div>
-            
-            {/* Send and Cancel Buttons - Bottom Right */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
-              {editingMessageId && (
-                <button
-                  onClick={handleCancelEdit}
-                  disabled={isStreaming}
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    backgroundColor: 'var(--background-secondary)',
-                    color: 'var(--text-muted)',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: isStreaming ? 'not-allowed' : 'pointer',
-                    opacity: isStreaming ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: '2px'
-                  }}
-                  title="Cancel editing"
-                >
-                  <LucidIcon name="x" size={14} />
-                </button>
-              )}
-              <IconButton
-                icon={<LucidIcon name="send" size={18} />}
-                ariaLabel="Send"
-                onClick={() => sendMessage()}
-                disabled={isStreaming}
-                title="Send"
-                color="var(--color-accent)"
-              />
-            </div>
-          </div>
-        </div>
+        <ChatInputContainer
+          selectedFiles={selectedFiles}
+          input={input}
+          textareaRef={textareaRef}
+          editingMessageId={editingMessageId}
+          isStreaming={isStreaming}
+          handleInputChange={handleInputChange}
+          handleFileSelect={handleFileSelect}
+          handleCancelEdit={handleCancelEdit}
+          sendMessage={sendMessage}
+          showFileDropdown={showFileDropdown}
+          filteredFiles={filteredFiles}
+          selectedFileIndex={selectedFileIndex}
+          setSelectedFileIndex={setSelectedFileIndex}
+          removeFileFromContext={removeFileFromContext}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          thinkingEnabled={thinkingEnabled}
+          setThinkingEnabled={setThinkingEnabled}
+          setShowFileDropdown={setShowFileDropdown}
+        />
       </div>
         </>
       )}
