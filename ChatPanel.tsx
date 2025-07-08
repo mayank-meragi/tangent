@@ -262,13 +262,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     return thinkingEnabled ? (selectedModel.defaultThinkingBudget || 8192) : 0;
   };
 
-  // Add thinking message to chat (legacy - will be removed)
-  const addThinkingMessage = (content: string) => {
-    // This function is kept for backward compatibility but will be phased out
-    // as we move to streaming both thought and message in a single AI message
-    console.warn('addThinkingMessage is deprecated - use streaming AI messages with thought field instead');
-  };
-
   // Tool confirmation handler
   const handleToolConfirmation = async (pendingTool: PendingToolCall): Promise<ToolConfirmationResult> => {
     return new Promise((resolve) => {
@@ -599,7 +592,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     
     
     let streamingMessageId: string | null = null;
-    let lastMessageType: 'thought' | 'message' | null = null;
 
     await streamAIResponse(
       '', // Empty prompt since we're using conversation history
@@ -615,7 +607,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             streaming: true,
             timestamp: formatTimestamp()
           });
-          lastMessageType = 'message';
         } else if (tokenOrChunk && typeof tokenOrChunk === 'object' && Array.isArray(tokenOrChunk.candidates)) {
           const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
           for (const part of parts) {
@@ -630,7 +621,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                 streaming: true,
                 timestamp: formatTimestamp()
               });
-              lastMessageType = 'thought';
             } else if (part.text) {
               // Always create a new message for each new message part
               streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -642,7 +632,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                 streaming: true,
                 timestamp: formatTimestamp()
               });
-              lastMessageType = 'message';
             }
           }
         }
@@ -766,6 +755,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         content: textToSend,
         timestamp
       });
+      setInput(''); // Clear input immediately after sending
     }
 
     setIsStreaming(true);
@@ -779,6 +769,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       console.error('Error sending message:', error);
     } finally {
       setIsStreaming(false);
+      if (!editingMessageId) {
+        setInput('');
+      }
     }
   };
 
@@ -817,12 +810,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             style={{
               background: 'none',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              padding: 0,
+              margin: 0,
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: '4px',
               display: 'flex',
               alignItems: 'center',
-              borderRadius: '4px'
+              borderRadius: 0
             }}
             title="Conversation history"
           >
@@ -833,12 +829,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             style={{
               background: 'none',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              padding: 0,
+              margin: 0,
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: '4px',
               display: 'flex',
               alignItems: 'center',
-              borderRadius: '4px'
+              borderRadius: 0
             }}
             title="New chat"
           >
@@ -1273,33 +1272,23 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                 onClick={() => sendMessage()}
                 disabled={isStreaming}
                 style={{
-                  width: '32px',
-                  height: '32px',
                   background: 'none',
                   border: 'none',
-                  color: 'var(--text-muted)',
-                  borderRadius: '6px',
+                  boxShadow: 'none',
+                  outline: 'none',
+                  padding: 0,
+                  margin: 0,
+                  color: 'var(--color-accent)',
                   cursor: isStreaming ? 'not-allowed' : 'pointer',
                   opacity: isStreaming ? 0.6 : 1,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  pointerEvents: 'auto'
+                  gap: '6px',
+                  borderRadius: 0
                 }}
-                title={isStreaming ? 'Sending...' : 'Send message'}
+                aria-label="Send"
               >
-                {isStreaming ? (
-                  <div style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    border: '2px solid currentColor',
-                    borderTop: '2px solid transparent',
-                    borderRadius: '50%',
-                    animation: 'tangent-spin 1s linear infinite'
-                  }} />
-                ) : (
-                  <LucidIcon name="send" size={18} />
-                )}
+                <LucidIcon name="send" size={18} />
               </button>
             </div>
           </div>
