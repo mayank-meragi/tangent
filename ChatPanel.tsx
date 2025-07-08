@@ -6,6 +6,8 @@ import { ConversationMessage } from './ai';
 import { SYSTEM_PROMPT } from './systemPrompt';
 import { setIcon } from 'obsidian';
 import { PendingToolCall, ToolConfirmationResult, readMemory } from './tools';
+import { ConversationService, Conversation } from './conversationService';
+import HistoryTab from './HistoryTab';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -229,10 +231,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     addToolCall, 
     addToolResult, 
     clearMessages,
+    loadMessages,
     pendingToolConfirmations,
     addPendingToolConfirmation,
     resolvePendingToolConfirmation
   } = useChatMessages();
+  
+  // History-related state
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversationService] = useState(() => new ConversationService(app));
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [input, setInput] = React.useState('');
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [selectedModel, setSelectedModel] = React.useState<ModelConfig>(MODEL_CONFIGS[0]);
@@ -417,6 +426,51 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       console.error('Error loading memory content:', error);
     }
   };
+
+  // History-related functions
+  const saveCurrentConversation = async () => {
+    if (messages.length === 0) return;
+    
+    try {
+      let conversation: Conversation;
+      
+      if (currentConversation) {
+        // Update existing conversation
+        conversation = conversationService.updateConversation(currentConversation, messages);
+      } else {
+        // Create new conversation
+        conversation = conversationService.createConversationFromMessages(messages);
+        setCurrentConversation(conversation);
+      }
+      
+      await conversationService.saveConversation(conversation);
+    } catch (error) {
+      console.error('Failed to save conversation:', error);
+    }
+  };
+
+  const loadConversation = (conversation: Conversation) => {
+    loadMessages(conversation.messages);
+    setCurrentConversation(conversation);
+    setShowHistory(false);
+  };
+
+  const startNewConversation = () => {
+    clearMessages();
+    setCurrentConversation(null);
+    setShowHistory(false);
+  };
+
+  // Auto-save conversation when messages change
+  useEffect(() => {
+    if (autoSaveEnabled && messages.length > 0 && !isStreaming) {
+      const timeoutId = setTimeout(() => {
+        saveCurrentConversation();
+      }, 2000); // Save after 2 seconds of inactivity
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, autoSaveEnabled, isStreaming]);
 
   // Handle editing a user message
   const handleEditMessage = (messageId: string, currentContent: string) => {
@@ -693,6 +747,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setIsStreaming(true);
     try {
       await continueAIResponse(conversationHistory, conversationHistory.length);
+      // Save conversation after AI response completes
+      if (autoSaveEnabled) {
+        setTimeout(() => saveCurrentConversation(), 1000);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -729,38 +787,60 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         }}>
           TANGENT
         </h2>
-                 <button
-           onClick={() => {
-             clearMessages();
-             setSelectedFiles([]);
-             setInput('');
-             setHasUserRemovedCurrentFile(false); // Reset flag for new chat
-           }}
-           style={{
-             background: 'none',
-             border: 'none',
-             color: 'var(--text-muted)',
-             cursor: 'pointer',
-             padding: '4px',
-             display: 'flex',
-             alignItems: 'center',
-             borderRadius: '4px'
-           }}
-           title="New chat"
-         >
-           <LucidIcon name="refresh-cw" size={16} />
-         </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: '4px'
+            }}
+            title="Conversation history"
+          >
+            <LucidIcon name="history" size={16} />
+          </button>
+          <button
+            onClick={startNewConversation}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: '4px'
+            }}
+            title="New chat"
+          >
+            <LucidIcon name="refresh-cw" size={16} />
+          </button>
+        </div>
       </div>
       
-      {/* Messages */}
-      <div style={{ 
-        flex: 1, 
-        overflowY: 'auto',
-        padding: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px'
-      }}>
+      {/* Main Content */}
+      {showHistory ? (
+        <HistoryTab
+          conversationService={conversationService}
+          onLoadConversation={loadConversation}
+          onClose={() => setShowHistory(false)}
+        />
+      ) : (
+        <>
+          {/* Messages */}
+          <div style={{ 
+            flex: 1, 
+            overflowY: 'auto',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
             return (
@@ -974,7 +1054,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               width: '100%',
               minHeight: '44px',
               padding: '12px 8px',
-              border: editingMessageId ? '2px solid var(--interactive-accent)' : '1px solid var(--background-modifier-border)',
+              border: 'none',
               backgroundColor: 'transparent',
               color: 'var(--text-normal)',
               fontSize: '14px',
@@ -1122,42 +1202,69 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               )}
             </div>
             
-            {/* Send Button - Bottom Right */}
-            <button
-              onClick={() => sendMessage()}
-              disabled={isStreaming}
-              style={{
-                width: '32px',
-                height: '32px',
-                backgroundColor: 'var(--interactive-accent)',
-                color: 'var(--text-on-accent)',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isStreaming ? 'not-allowed' : 'pointer',
-                opacity: isStreaming ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'auto'
-              }}
-              title={isStreaming ? 'Sending...' : 'Send message'}
-            >
-              {isStreaming ? (
-                <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  border: '2px solid currentColor',
-                  borderTop: '2px solid transparent',
-                  borderRadius: '50%',
-                  animation: 'tangent-spin 1s linear infinite'
-                }} />
-              ) : (
-                <LucidIcon name="send" size={14} />
+            {/* Send and Cancel Buttons - Bottom Right */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
+              {editingMessageId && (
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={isStreaming}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    backgroundColor: 'var(--background-secondary)',
+                    color: 'var(--text-muted)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: isStreaming ? 'not-allowed' : 'pointer',
+                    opacity: isStreaming ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: '2px'
+                  }}
+                  title="Cancel editing"
+                >
+                  <LucidIcon name="x" size={14} />
+                </button>
               )}
-            </button>
+              <button
+                onClick={() => sendMessage()}
+                disabled={isStreaming}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  backgroundColor: 'var(--interactive-accent)',
+                  color: 'var(--text-on-accent)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: isStreaming ? 'not-allowed' : 'pointer',
+                  opacity: isStreaming ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'auto'
+                }}
+                title={isStreaming ? 'Sending...' : 'Send message'}
+              >
+                {isStreaming ? (
+                  <div style={{ 
+                    width: '12px', 
+                    height: '12px', 
+                    border: '2px solid currentColor',
+                    borderTop: '2px solid transparent',
+                    borderRadius: '50%',
+                    animation: 'tangent-spin 1s linear infinite'
+                  }} />
+                ) : (
+                  <LucidIcon name="send" size={14} />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

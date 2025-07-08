@@ -1,16 +1,62 @@
-# Obsidian Sample Plugin
+# Tangent - AI Chat Plugin for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Tangent is an AI chat plugin for Obsidian that integrates with Google's Gemini AI to provide intelligent assistance within your vault. It allows you to have conversations with AI about your notes, files, and ideas.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+- **AI Chat Interface**: Clean, modern chat interface integrated into Obsidian's sidebar
+- **Gemini AI Integration**: Powered by Google's Gemini AI models
+- **File Context**: Automatically include current file content in conversations
+- **File Selection**: Manually select files to include in conversations using @ mentions
+- **Tool Integration**: AI can read, write, and list files in your vault
+- **Memory System**: AI remembers previous conversations and user preferences
+- **Conversation History**: Save and load previous conversations
+- **Message Editing**: Edit and regenerate AI responses
+- **Thinking Mode**: Enable AI reasoning and step-by-step thinking
+- **Multiple Models**: Support for different Gemini models
+
+## Conversation History
+
+Tangent automatically saves your conversations and provides a history feature:
+
+- **Auto-save**: Conversations are automatically saved as you chat
+- **History Tab**: Click the history icon in the top-right to view all conversations
+- **Load Conversations**: Click on any conversation to load it and continue chatting
+- **Delete Conversations**: Remove conversations you no longer need
+- **Conversation Titles**: Automatically generated from the first message
+
+## Setup
+
+1. Install the plugin in Obsidian
+2. Get a Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+3. Add your API key in the plugin settings
+4. Open the chat panel using the ribbon icon or command palette
+
+## Usage
+
+- **Start a conversation**: Type your message and press Enter
+- **Include files**: Use @ to mention files in your vault
+- **Edit messages**: Click the edit button on any user message
+- **View history**: Click the history icon to see past conversations
+- **New chat**: Click the refresh icon to start a fresh conversation
+
+## File Operations
+
+The AI can perform various file operations in your vault:
+- List all files and folders
+- Read file contents
+- Write new files or update existing ones
+- Access a persistent memory system
+
+## Settings
+
+- **Gemini API Key**: Your Google AI API key for Gemini access
+- **Model Selection**: Choose between different Gemini models
+- **Thinking Mode**: Enable/disable AI reasoning capabilities
+
+## Development
+
+This plugin is built with TypeScript and React, providing a modern development experience.
 
 ## First time developing plugins?
 

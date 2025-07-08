@@ -16,6 +16,7 @@ interface ChatMessagesContextType {
   addToolCall: (toolName: string, toolArgs: any) => void;
   addToolResult: (toolName: string, result: any) => void;
   clearMessages: () => void;
+  loadMessages: (messages: ChatMessage[]) => void;
   pendingToolConfirmations: Map<string, PendingToolCall>;
   addPendingToolConfirmation: (pendingTool: PendingToolCall) => void;
   resolvePendingToolConfirmation: (toolCallId: string, approved: boolean) => void;
@@ -92,6 +93,11 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
     setPendingToolConfirmations(new Map());
   };
 
+  const loadMessages = (messages: ChatMessage[]) => {
+    setMessages([...messages]);
+    setPendingToolConfirmations(new Map());
+  };
+
   const addPendingToolConfirmation = (pendingTool: PendingToolCall) => {
     setPendingToolConfirmations(prev => new Map(prev.set(pendingTool.id, pendingTool)));
     // Add confirmation message to chat
@@ -128,6 +134,7 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
       addToolCall, 
       addToolResult, 
       clearMessages,
+      loadMessages,
       pendingToolConfirmations,
       addPendingToolConfirmation,
       resolvePendingToolConfirmation
