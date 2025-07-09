@@ -42,7 +42,13 @@ const UserMessage: React.FC<UserMessageProps> = ({
         fontSize: '14px',
         lineHeight: '1.5',
       }}>
-        <ReactMarkdown>{content}</ReactMarkdown>
+        <ReactMarkdown
+        components={{
+          p: ({node, ...props}) => (
+            <p style={{ margin: 4 }} {...props} />
+          )
+        }}
+        >{content}</ReactMarkdown>
       </div>
     </div>
   );

@@ -12,11 +12,14 @@ import ChatMessageContainer from './src/components/ChatMessageContainer';
 import LucidIcon from './src/components/LucidIcon';
 import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
+import UserMessage from './src/components/UserMessage';
+import { MCPServerManager } from './src/components/MCPServerManager';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
   streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>) => Promise<void>;
   app: any; // Obsidian App instance
+  unifiedToolManager?: any; // UnifiedToolManager instance
 }
 
 // File list result renderer
@@ -169,7 +172,7 @@ const ToolConfirmationCard: React.FC<{
   );
 };
 
-export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResponse, app }) => {
+export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResponse, app, unifiedToolManager }) => {
   const { 
     messages, 
     addMessage, 
@@ -177,14 +180,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     removeMessagesAfter,
     addToolCall, 
     addToolResult, 
-    clearMessages,
     loadMessages,
     addPendingToolConfirmation,
-    resolvePendingToolConfirmation
+    resolvePendingToolConfirmation,
+    clearMessages
   } = useChatMessages();
   
   // History-related state
-  const [showHistory, setShowHistory] = useState(false);
   const [conversationService] = useState(() => new ConversationService(app));
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [autoSaveEnabled] = useState(true);
@@ -204,6 +206,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const currentMessagesRef = useRef(messages);
   const justSelectedFileRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // State for which view is active
+  const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
 
   // Update thinking enabled state when model changes
   useEffect(() => {
@@ -254,6 +258,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   useEffect(() => {
     loadMemoryContent();
   }, []);
+
+
 
   // Function to get current active file and add it to context
   const getCurrentFileContext = async () => {
@@ -385,13 +391,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const loadConversation = (conversation: Conversation) => {
     loadMessages(conversation.messages);
     setCurrentConversation(conversation);
-    setShowHistory(false);
-  };
-
-  const startNewConversation = () => {
-    clearMessages();
-    setCurrentConversation(null);
-    setShowHistory(false);
+    setActiveView('chat'); // Switch to chat view after loading conversation
   };
 
   // Auto-save conversation when messages change
@@ -772,6 +772,34 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // MCP Server Manager props (get from plugin context)
+  const plugin = (window as any).tangentPluginInstance; // You may need to set this in main.tsx for access
+  const mcpServerManager = plugin?.mcpServerManager;
+  
+  // Get fresh data from server manager
+  const getMCPServers = () => mcpServerManager?.getAllServerConfigs() || [];
+  const getMCPServerStatuses = () => mcpServerManager?.getAllServerStatuses() || [];
+  
+  // State to force refresh of MCP data
+  const [mcpRefreshKey, setMcpRefreshKey] = useState(0);
+  
+  // Function to refresh MCP data
+  const refreshMCPData = () => {
+    setMcpRefreshKey(prev => prev + 1);
+  };
+
+  const handleNewChat = () => {
+    clearMessages();
+    setCurrentConversation(null);
+    setInput('');
+    setSelectedFiles([]);
+    setEditingMessageId(null);
+    setShowFileDropdown(false);
+    setAtMentionQuery('');
+    setSelectedFileIndex(0);
+    setActiveView('chat');
+  };
+
   return (
     <div className="tangent-chat-panel-root" style={{ 
       height: '100%', 
@@ -779,48 +807,36 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       flexDirection: 'column',
       backgroundColor: 'var(--background-primary)'
     }}>
-      {/* Header */}
-      <div style={{ 
-        padding: '12px 16px', 
-        borderBottom: '1px solid var(--background-modifier-border)',
-        backgroundColor: 'var(--background-primary)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <h2 style={{ 
-          margin: 0, 
-          fontSize: '16px', 
-          fontWeight: 700, 
-          color: 'var(--text-normal)',
-          letterSpacing: '0.5px'
-        }}>
-          TANGENT
-        </h2>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      {/* Top Bar with Icon Buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: '1.2em', letterSpacing: 1 }}>TANGENT</div>
+        <div style={{ display: 'flex', gap: 8 }}>
           <IconButton
-            icon={<LucidIcon name="history" size={16} />}
-            ariaLabel="Show history"
-            onClick={() => setShowHistory(!showHistory)}
-            title="Conversation history"
+            icon={<LucidIcon name="history" size={18} />}
+            ariaLabel="History"
+            title="History"
+            onClick={() => setActiveView('history')}
           />
           <IconButton
-            icon={<LucidIcon name="refresh-cw" size={16} />}
-            ariaLabel="New chat"
-            onClick={startNewConversation}
-            title="New chat"
+            icon={<LucidIcon name="refresh-cw" size={18} />}
+            ariaLabel="Refresh"
+            title="Refresh"
+            onClick={handleNewChat}
+          />
+          <IconButton
+            icon={<LucidIcon name="server" size={18} />}
+            ariaLabel="Servers"
+            title="Servers"
+            onClick={() => {
+              setActiveView('servers');
+              refreshMCPData();
+            }}
           />
         </div>
       </div>
-      
+
       {/* Main Content */}
-      {showHistory ? (
-        <HistoryTab
-          conversationService={conversationService}
-          onLoadConversation={loadConversation}
-          onClose={() => setShowHistory(false)}
-        />
-      ) : (
+      {activeView === 'chat' && (
         <>
           {/* Messages */}
           <div style={{ 
@@ -868,66 +884,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           const isUser = msg.role === 'user';
           const isAI = msg.role === 'ai';
           
-          // Only pass timestamp if present (user or ai message)
-          const timestamp = (isUser || isAI) ? msg.timestamp : undefined;
-          
           return (
             <ChatMessageContainer
               key={msg.id || idx}
               isUser={isUser}
-              {...(timestamp ? { timestamp } : {})}
             >
-              {isUser && (
-                <div style={{
-                  position: 'absolute',
-                  top: '4px',
-                  right: '4px',
-                  display: 'flex',
-                  gap: '4px'
-                }} className="message-actions">
-                  <button
-                    onClick={() => handleEditMessage(msg.id, msg.content)}
-                    style={{
-                      background: 'var(--background-primary)',
-                      border: '1px solid var(--background-modifier-border)',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      minWidth: '24px',
-                      minHeight: '24px',
-                      transition: 'all 0.2s ease-in-out'
-                    }}
-                    title="Edit message"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--background-secondary)';
-                      e.currentTarget.style.borderColor = 'var(--interactive-accent)';
-                      e.currentTarget.style.color = 'var(--interactive-accent)';
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'var(--background-primary)';
-                      e.currentTarget.style.borderColor = 'var(--background-modifier-border)';
-                      e.currentTarget.style.color = 'var(--text-muted)';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                  >
-                    <LucidIcon name="edit-3" size={12} />
-                  </button>
-                </div>
-              )}
               {isUser ? (
-                <div style={{
-                  color: 'var(--text-normal)',
-                  fontSize: '14px',
-                  lineHeight: '1.5'
-                }}>
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
+                <UserMessage
+                  content={msg.content}
+                  onEdit={() => handleEditMessage(msg.id, msg.content)}
+                  showEdit={true}
+                />
               ) : isAI ? (
                 <AIMessage thought={msg.thought} message={msg.message} />
               ) : null}
@@ -966,6 +933,41 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         />
       </div>
         </>
+      )}
+      {activeView === 'history' && (
+        <HistoryTab
+          conversationService={conversationService}
+          onLoadConversation={loadConversation}
+          onClose={() => setActiveView('chat')}
+        />
+      )}
+      {activeView === 'servers' && (
+        <MCPServerManager
+          key={mcpRefreshKey}
+          servers={getMCPServers()}
+          serverStatuses={getMCPServerStatuses()}
+          onAddServer={(server: any) => { 
+            mcpServerManager?.addServer(server); 
+            setTimeout(refreshMCPData, 200);
+          }}
+          onRemoveServer={async (serverName: string) => { 
+            await mcpServerManager?.removeServer(serverName); 
+            setTimeout(refreshMCPData, 200);
+          }}
+          onToggleServer={async (serverName: string, enabled: boolean) => { 
+            mcpServerManager?.setServerEnabled(serverName, enabled); 
+            setTimeout(refreshMCPData, 200);
+          }}
+          onStartServer={async (serverName: string) => { 
+            await mcpServerManager?.startServer(serverName); 
+            setTimeout(refreshMCPData, 200);
+          }}
+          onStopServer={async (serverName: string) => { 
+            await mcpServerManager?.stopServer(serverName); 
+            setTimeout(refreshMCPData, 200);
+          }}
+          isPlaceholderServer={(serverName: string) => mcpServerManager?.isPlaceholderServer(serverName) || false}
+        />
       )}
     </div>
   );

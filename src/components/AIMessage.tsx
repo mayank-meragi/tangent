@@ -22,7 +22,13 @@ const AIMessage: React.FC<AIMessageProps> = ({
           fontSize: '14px',
           lineHeight: '1.5',
         }}>
-          <ReactMarkdown>{message}</ReactMarkdown>
+          <ReactMarkdown
+          components={{
+            p: ({node, ...props}) => (
+              <p style={{ margin: 4 }} {...props} />
+            )
+          }}
+          >{message}</ReactMarkdown>
         </div>
       )}
     </div>

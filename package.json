@@ -25,6 +25,7 @@
 		"@google/genai": "^1.8.0",
 		"@langchain/google-genai": "^0.2.14",
 		"@langchain/google-webauth": "^0.2.14",
+		"@modelcontextprotocol/sdk": "^1.15.0",
 		"@types/react": "^19.1.8",
 		"@types/react-dom": "^19.1.6",
 		"react": "^19.1.0",

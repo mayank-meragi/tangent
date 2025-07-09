@@ -1,17 +1,6 @@
 import { GenerateContentConfig, GoogleGenAI, Type } from '@google/genai';
 import { App } from 'obsidian';
 import { 
-  listVaultFiles, 
-  readFile, 
-  writeFile,
-  readMemory,
-  updateMemory,
-  ToolResult,
-  listVaultFilesFunction,
-  readFileFunction,
-  writeFileFunction,
-  readMemoryFunction,
-  updateMemoryFunction,
   PendingToolCall,
   ToolConfirmationResult,
 } from './tools';
@@ -35,44 +24,6 @@ export interface ConversationMessage {
   }>;
 }
 
-// Tool map for easy lookup
-const TOOL_MAP: Record<string, (app: App, args: any) => Promise<ToolResult>> = {
-  listVaultFiles,
-  readFile,
-  writeFile,
-  readMemory,
-  updateMemory,
-};
-
-// Tool function map for easy lookup of confirmation requirements
-const TOOL_FUNCTION_MAP: Record<string, any> = {
-  listVaultFiles: listVaultFilesFunction,
-  readFile: readFileFunction,
-  writeFile: writeFileFunction,
-  readMemory: readMemoryFunction,
-  updateMemory: updateMemoryFunction,
-};
-
-// Convert our tool functions to Google GenAI SDK format
-const convertToolFunction = (toolFunc: any) => ({
-  name: toolFunc.name,
-  description: toolFunc.description,
-  parameters: {
-    type: Type.OBJECT,
-    properties: toolFunc.parameters.properties,
-    required: toolFunc.parameters.required || []
-  }
-});
-
-// Convert tool function declarations for Google GenAI
-const TOOL_FUNCTIONS = [
-  convertToolFunction(listVaultFilesFunction),
-  convertToolFunction(readFileFunction),
-  convertToolFunction(writeFileFunction),
-  convertToolFunction(readMemoryFunction),
-  convertToolFunction(updateMemoryFunction),
-];
-
 export async function streamAIResponse({
   apiKey,
   modelId,
@@ -85,6 +36,7 @@ export async function streamAIResponse({
   onToolConfirmationNeeded,
   app,
   thinkingBudget = 0,
+  unifiedToolManager,
 }: {
   apiKey: string;
   modelId: string;
@@ -97,6 +49,7 @@ export async function streamAIResponse({
   onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>;
   app: App;
   thinkingBudget?: number;
+  unifiedToolManager: any;
 }) {
   if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
     if (onToken) onToken('[Gemini API key not set]');
@@ -131,15 +84,36 @@ export async function streamAIResponse({
       return;
     }
     
-    
-    
+    // --- DYNAMIC TOOL LOADING ---
+    // Get all tools from the unifiedToolManager
+    const allTools = unifiedToolManager?.getAllTools ? unifiedToolManager.getAllTools() : [];
+    // Build function declarations for Gemini
+    const toolFunctionDeclarations = allTools.map(tool => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: {
+        type: Type.OBJECT,
+        properties: tool.inputSchema?.properties || {},
+        required: tool.inputSchema?.required || []
+      }
+    }));
+    // Map for tool execution and confirmation
+    const toolMap: Record<string, any> = {};
+    const toolRequiresConfirmation: Record<string, boolean> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const tool of allTools as any[]) {
+      const t = tool as any;
+      toolMap[t.name] = t;
+      toolRequiresConfirmation[t.name] = !!t.requiresConfirmation;
+    }
+
     // Build config with thinking configuration
     const config: GenerateContentConfig = {
       tools: [{
-        functionDeclarations: TOOL_FUNCTIONS
+        functionDeclarations: toolFunctionDeclarations
       }]
     };
-    
+
     // Add thinking configuration if budget > 0
     if (thinkingBudget > 0) {
       config.thinkingConfig = {
@@ -151,13 +125,13 @@ export async function streamAIResponse({
         thinkingBudget: 0
       };
     }
-    
+
     // Convert our conversation messages to Gemini format
     const geminiContents = messages.map(msg => ({
       role: msg.role === 'system' ? 'user' : msg.role, // Gemini treats system as user
       parts: msg.parts
     }));
-    
+
     // Send request with tools and thinking config
     const response = await genAI.models.generateContentStream({
       model: modelId,
@@ -219,8 +193,7 @@ export async function streamAIResponse({
         // Check if tool requires confirmation
         if (!name) continue; // Skip if no tool name
         
-        const toolFunction = TOOL_FUNCTION_MAP[name];
-        const requiresConfirmation = toolFunction?.requiresConfirmation || false;
+        const requiresConfirmation = toolRequiresConfirmation[name] || false;
         
         if (requiresConfirmation && onToolConfirmationNeeded) {
           // Create pending tool call
@@ -245,10 +218,10 @@ export async function streamAIResponse({
           
         }
         
-        // Execute the tool
-        if (name && TOOL_MAP[name]) {
+        // Execute the tool via unifiedToolManager
+        if (name && toolMap[name]) {
           try {
-            const toolResult = await TOOL_MAP[name](app, args || {});
+            const toolResult = await unifiedToolManager.executeTool(toolMap[name].id, args || {});
             
             
             if (onToolResult) {

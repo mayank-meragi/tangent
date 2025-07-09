@@ -3,17 +3,23 @@ import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
 import { streamAIResponse, ConversationMessage } from './ai';
+import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
+import { getPreconfiguredServers } from './mcp/preconfiguredServers';
 
 // Remember to rename these classes and interfaces!
 
 interface MyPluginSettings {
 	mySetting: string;
 	geminiApiKey?: string;
+	mcpEnabled: boolean;
+	mcpServers: MCPServerConfig[];
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default',
 	geminiApiKey: '',
+	mcpEnabled: false,
+	mcpServers: [],
 };
 
 const CHAT_VIEW_TYPE = 'tangent-chat-view';
@@ -47,6 +53,7 @@ class ChatView extends View {
 				geminiApiKey={apiKey} 
 				streamAIResponse={this.streamAIResponse}
 				app={this.plugin.app}
+				unifiedToolManager={this.plugin.unifiedToolManager}
 			/>
 		);
 	}
@@ -89,15 +96,21 @@ class ChatView extends View {
 			onToolConfirmationNeeded,
 			app: this.plugin.app,
 			thinkingBudget,
+			unifiedToolManager: this.plugin.unifiedToolManager,
 		});
 	};
 }
 
 export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
+	public mcpServerManager!: MCPServerManager;
+	public unifiedToolManager!: UnifiedToolManager;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Initialize MCP managers
+		this.initializeMCP();
 
 		// Register the chat view
 		this.registerView(
@@ -179,6 +192,15 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 
+		// Add MCP server manager command
+		this.addCommand({
+			id: 'open-mcp-server-manager',
+			name: 'Open MCP Server Manager',
+			callback: () => {
+				new MCPServerManagerModal(this.app, this).open();
+			}
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new GeminiSettingTab(this.app, this));
 
@@ -190,18 +212,65 @@ export default class MyPlugin extends Plugin {
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		(window as any).tangentPluginInstance = this;
 	}
 
 	onunload() {
-
+		// Cleanup MCP managers
+		if (this.mcpServerManager) {
+			this.mcpServerManager.cleanup();
+		}
 	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		console.log('Loaded settings:', this.settings);
+	}
+
+	/**
+	 * Initialize MCP managers
+	 */
+	private initializeMCP(): void {
+		// Initialize MCP server manager with settings change callback
+		this.mcpServerManager = new MCPServerManager((servers) => {
+			console.log('Server manager callback triggered with servers:', servers);
+			this.settings.mcpServers = servers;
+			this.saveSettings();
+		});
+
+		// Initialize unified tool manager
+		this.unifiedToolManager = new UnifiedToolManager(
+			this.app,
+			this.mcpServerManager.getClient(),
+			this.mcpServerManager.getSecurityManager()
+		);
+
+		// Wire up the tool manager to the server manager
+		this.mcpServerManager.setUnifiedToolManager(this.unifiedToolManager);
+
+		// Load server configurations from settings
+		this.mcpServerManager.loadServerConfigurations(this.settings.mcpServers);
+
+		// Start enabled servers if MCP is enabled
+		if (this.settings.mcpEnabled) {
+			this.startEnabledMCPServers();
+		}
+	}
+
+	/**
+	 * Start enabled MCP servers
+	 */
+	public async startEnabledMCPServers(): Promise<void> {
+		try {
+			await this.mcpServerManager.startAllEnabledServers();
+		} catch (error) {
+			console.error('Failed to start MCP servers:', error);
+		}
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		console.log('Saved settings:', this.settings);
 	}
 }
 
@@ -221,6 +290,133 @@ class SampleModal extends Modal {
 	}
 }
 
+class MCPServerManagerModal extends Modal {
+	private preconfiguredServers: MCPServerConfig[] = [];
+	
+	constructor(app: App, private plugin: MyPlugin) {
+		super(app);
+	}
+
+	async onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.createEl('h2', { text: 'MCP Server Manager' });
+		
+		// Load preconfigured servers
+		try {
+			this.preconfiguredServers = await getPreconfiguredServers();
+		} catch (error) {
+			console.error('Failed to load preconfigured servers:', error);
+			this.preconfiguredServers = [];
+		}
+		
+		// Create a simple server management interface
+		const container = contentEl.createDiv('mcp-server-manager-modal');
+		
+		// Show current servers
+		const servers = this.plugin.mcpServerManager.getAllServerConfigs();
+		const serverStatuses = this.plugin.mcpServerManager.getAllServerStatuses();
+		
+		if (servers.length === 0) {
+			container.createEl('p', { text: 'No MCP servers configured. Add a server to get started.' });
+		} else {
+			servers.forEach(server => {
+				const status = serverStatuses.find(s => s.name === server.name);
+				const serverEl = container.createDiv('server-item');
+				serverEl.createEl('h3', { text: server.name });
+				serverEl.createEl('p', { text: server.description || 'No description' });
+				serverEl.createEl('p', { text: `Status: ${status?.status || 'unknown'}` });
+
+				if ((status?.status || 'stopped') === 'stopped') {
+					const instructions = serverEl.createEl('div', { cls: 'mcp-server-instructions' });
+					instructions.innerHTML = `
+						<b>This server is currently stopped.</b><br>
+						To start it, make sure it is enabled and then click the <b>Start</b> (▶️) button above.<br>
+						If this is your first time, you may need to install the MCP servers package:<br>
+						<code>npm install -g @modelcontextprotocol/servers</code><br>
+						The plugin will automatically launch the server for you when you click Start.
+					`;
+				}
+				
+				// Add controls
+				const controls = serverEl.createDiv('server-controls');
+				
+				// Enable/disable toggle
+				const toggleEl = controls.createEl('button', { 
+					text: server.enabled ? 'Disable' : 'Enable',
+					cls: server.enabled ? 'mod-warning' : 'mod-cta'
+				});
+				toggleEl.onclick = async () => {
+					this.plugin.mcpServerManager.setServerEnabled(server.name, !server.enabled);
+					this.onOpen(); // Refresh the modal
+				};
+
+				// Start/stop button
+				const isRunning = this.plugin.mcpServerManager.isServerRunning(server.name);
+				const startStopEl = controls.createEl('button', { 
+					text: isRunning ? 'Stop' : 'Start',
+					cls: isRunning ? 'mod-warning' : 'mod-cta'
+				});
+				startStopEl.onclick = async () => {
+					try {
+						if (isRunning) {
+							await this.plugin.mcpServerManager.stopServer(server.name);
+						} else {
+							await this.plugin.mcpServerManager.startServer(server.name);
+						}
+						this.onOpen(); // Refresh the modal
+					} catch (error) {
+						console.error('Failed to start/stop server:', error);
+						new Notice(`Failed to ${isRunning ? 'stop' : 'start'} server: ${error}`);
+					}
+				};
+
+				// Remove button
+				controls.createEl('button', { text: 'Remove', cls: 'mod-danger' }).onclick = async () => {
+					await this.plugin.mcpServerManager.removeServer(server.name);
+					this.onOpen(); // Refresh the modal
+				};
+			});
+		}
+		
+		// Add server button
+		const addButton = container.createEl('button', { text: 'Add Pre-configured Server' });
+		addButton.onclick = () => {
+			this.showAddServerDialog(container);
+		};
+	}
+
+	showAddServerDialog(container: HTMLElement) {
+		const dialog = container.createDiv('add-server-dialog');
+		dialog.createEl('h3', { text: 'Add Server' });
+		
+		const select = dialog.createEl('select');
+		select.createEl('option', { text: 'Select a server...', value: '' });
+		
+		// Add pre-configured servers
+		this.preconfiguredServers.forEach((server: any) => {
+			select.createEl('option', { 
+				text: `${server.name} - ${server.description}`, 
+				value: server.name 
+			});
+		});
+		
+		const addButton = dialog.createEl('button', { text: 'Add' });
+		addButton.onclick = async () => {
+			const selectedServer = this.preconfiguredServers.find((s: any) => s.name === select.value);
+			if (selectedServer) {
+				this.plugin.mcpServerManager.addServer(selectedServer);
+				this.onOpen(); // Refresh the modal
+			}
+		};
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
+
 class GeminiSettingTab extends PluginSettingTab {
 	plugin: MyPlugin;
 
@@ -233,6 +429,7 @@ class GeminiSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		// Gemini API Key Setting
 		new Setting(containerEl)
 			.setName('Gemini API Key')
 			.setDesc('Enter your Gemini API key for AI chat.')
@@ -244,5 +441,43 @@ class GeminiSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			);
+
+		// MCP Settings Section
+		containerEl.createEl('h2', { text: 'Model Context Protocol (MCP)' });
+
+		new Setting(containerEl)
+			.setName('Enable MCP')
+			.setDesc('Enable Model Context Protocol support for additional tools and capabilities.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.mcpEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.mcpEnabled = value;
+					await this.plugin.saveSettings();
+					
+					// Start/stop servers based on setting
+					if (value) {
+						this.plugin.startEnabledMCPServers();
+					} else {
+						this.plugin.mcpServerManager?.stopAllServers();
+					}
+				})
+			);
+
+		// MCP Server Management Section
+		if (this.plugin.settings.mcpEnabled) {
+			const mcpContainer = containerEl.createDiv('mcp-settings');
+			mcpContainer.createEl('h3', { text: 'MCP Servers' });
+			
+			// Add a button to open MCP server manager modal
+			new Setting(mcpContainer)
+				.setName('Manage MCP Servers')
+				.setDesc('Add, remove, and configure MCP servers.')
+				.addButton(button => button
+					.setButtonText('Open Server Manager')
+					.onClick(() => {
+						new MCPServerManagerModal(this.app, this.plugin).open();
+					})
+				);
+		}
 	}
 }
