@@ -5,7 +5,9 @@ export * from './types';
 export { listVaultFiles, listVaultFilesFunction } from './listVaultFiles';
 export { readFile, readFileFunction } from './readFile';
 export { writeFile, writeFileFunction } from './writeFile';
-export { readMemory, updateMemory, readMemoryFunction, updateMemoryFunction } from './memory';
+export { writeToMemory, writeToMemoryFunction } from './memory/writeToMemory';
+export { readMemory, readMemoryFunction } from './memory/readMemory';
+
 export type { ToolResult, ToolFunction, ToolCall } from './types';
 
 // Add new tools here as they are created

@@ -4,6 +4,7 @@ import {
   PendingToolCall,
   ToolConfirmationResult,
 } from './tools';
+import { MemoryService } from './memoryService';
 
 // Message type for conversation history
 export interface ConversationMessage {
@@ -88,7 +89,7 @@ export async function streamAIResponse({
     // Get all tools from the unifiedToolManager
     const allTools = unifiedToolManager?.getAllTools ? unifiedToolManager.getAllTools() : [];
     // Build function declarations for Gemini
-    const toolFunctionDeclarations = allTools.map(tool => ({
+    const toolFunctionDeclarations = allTools.map((tool: any) => ({
       name: tool.name,
       description: tool.description,
       parameters: {
@@ -114,6 +115,9 @@ export async function streamAIResponse({
       }]
     };
 
+    // Debug log: print tool names sent to LLM
+    console.log('Tools sent to LLM:', toolFunctionDeclarations.map((t: any) => t.name));
+
     // Add thinking configuration if budget > 0
     if (thinkingBudget > 0) {
       config.thinkingConfig = {
@@ -126,11 +130,35 @@ export async function streamAIResponse({
       };
     }
 
+    // Load memory content and add it as context
+    const memoryService = new MemoryService(app);
+    const memoryContent = await memoryService.readMemory();
+    
     // Convert our conversation messages to Gemini format
-    const geminiContents = messages.map(msg => ({
+    let geminiContents = messages.map(msg => ({
       role: msg.role === 'system' ? 'user' : msg.role, // Gemini treats system as user
       parts: msg.parts
     }));
+    
+    // Add memory context if available
+    if (memoryContent.trim()) {
+      const memoryContext = {
+        role: 'user' as const,
+        parts: [{ text: `MEMORY CONTEXT:\n\n${memoryContent}\n\n---\n\nPlease consider the above memory context when responding.` }]
+      };
+      
+      // Insert memory context after system message but before other messages
+      const systemMessageIndex = geminiContents.findIndex(msg => 
+        msg.parts.some(part => part.text && part.text.includes('You are an AI assistant'))
+      );
+      
+      if (systemMessageIndex !== -1) {
+        geminiContents.splice(systemMessageIndex + 1, 0, memoryContext);
+      } else {
+        // If no system message found, add memory context at the beginning
+        geminiContents.unshift(memoryContext);
+      }
+    }
 
     // Send request with tools and thinking config
     const response = await genAI.models.generateContentStream({
@@ -153,6 +181,11 @@ export async function streamAIResponse({
     }
     
     console.log('[AI DEBUG] Full response:', fullResponse);
+
+    // Debug log: print all tool calls decided by LLM
+    if (fullResponse?.functionCalls) {
+      console.log('[AI DEBUG] Tool calls decided by LLM:', fullResponse.functionCalls);
+    }
     
     // Handle thinking tokens if present
     if (fullResponse?.usageMetadata?.thoughtsTokenCount && fullResponse.usageMetadata.thoughtsTokenCount > 0) {
@@ -221,7 +254,7 @@ export async function streamAIResponse({
         // Execute the tool via unifiedToolManager
         if (name && toolMap[name]) {
           try {
-            const toolResult = await unifiedToolManager.executeTool(toolMap[name].id, args || {});
+            const toolResult = await unifiedToolManager.callTool(toolMap[name].id, args || {});
             
             
             if (onToolResult) {

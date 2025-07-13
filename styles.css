@@ -394,7 +394,229 @@ If your plugin does not need CSS, delete this file.
 
 /* Remove border and outline for chat textarea on focus */
 textarea:focus {
-	outline: none !important;
-	border: none !important;
-	box-shadow: none !important;
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* MCP Server Manager Modal Styles */
+.mcp-server-manager-modal {
+	padding: 20px;
+	max-width: 800px;
+	margin: 0 auto;
+}
+
+.mcp-tabs {
+	display: flex;
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: 20px;
+}
+
+.mcp-tab {
+	background: none;
+	border: none;
+	padding: 10px 20px;
+	cursor: pointer;
+	color: var(--text-muted);
+	border-bottom: 2px solid transparent;
+	transition: all 0.2s ease;
+}
+
+.mcp-tab:hover {
+	color: var(--text-normal);
+	background: var(--background-secondary);
+}
+
+.mcp-tab.active {
+	color: var(--interactive-accent);
+	border-bottom-color: var(--interactive-accent);
+}
+
+.mcp-tab-content {
+	display: none;
+}
+
+.mcp-tab-content.active {
+	display: block;
+}
+
+.server-list, .available-servers-list {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.server-item, .available-server-item {
+	background: var(--background-primary-alt);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 16px;
+	transition: all 0.2s ease;
+}
+
+.server-item:hover, .available-server-item:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.server-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.server-header h3 {
+	margin: 0;
+	color: var(--text-normal);
+	font-size: 1.1em;
+	font-weight: 600;
+}
+
+.status-badge {
+	padding: 4px 8px;
+	border-radius: 12px;
+	font-size: 0.8em;
+	font-weight: 500;
+	text-transform: capitalize;
+}
+
+.status-badge.status-running {
+	background: var(--color-green);
+	color: white;
+}
+
+.status-badge.status-stopped {
+	background: var(--text-muted);
+	color: var(--text-on-accent);
+}
+
+.status-badge.status-error {
+	background: var(--color-red);
+	color: white;
+}
+
+.status-badge.status-connecting {
+	background: var(--color-orange);
+	color: white;
+}
+
+.server-details {
+	margin-bottom: 16px;
+}
+
+.server-details p {
+	margin: 4px 0;
+	font-size: 0.9em;
+	color: var(--text-muted);
+}
+
+.server-description {
+	color: var(--text-normal) !important;
+	font-style: italic;
+	margin: 8px 0 !important;
+}
+
+.error-message {
+	color: var(--color-red) !important;
+	font-weight: 500;
+}
+
+.installation-instructions {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 12px;
+	margin: 12px 0;
+	font-size: 0.85em;
+	line-height: 1.4;
+}
+
+.installation-instructions strong {
+	color: var(--text-normal);
+}
+
+.server-controls {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.toggle-container {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 0.9em;
+}
+
+.toggle-container input[type="checkbox"] {
+	margin: 0;
+}
+
+.server-controls button {
+	padding: 6px 12px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.85em;
+	transition: all 0.2s ease;
+}
+
+.server-controls button:hover {
+	background: var(--background-secondary);
+	border-color: var(--interactive-accent);
+}
+
+.server-controls button.mod-cta {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.server-controls button.mod-cta:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.server-controls button.mod-warning {
+	background: var(--color-red);
+	color: white;
+	border-color: var(--color-red);
+}
+
+.server-controls button.mod-warning:hover {
+	background: var(--color-red-tint);
+}
+
+.diagnostic-info {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 12px;
+	margin: 12px 0;
+	font-size: 0.85em;
+	line-height: 1.4;
+	border-left: 4px solid var(--color-orange);
+}
+
+.diagnostic-info strong {
+	color: var(--text-normal);
+	font-weight: 600;
+}
+
+.memory-status {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 12px;
+	margin: 12px 0;
+	font-size: 0.85em;
+	line-height: 1.4;
+	border-left: 4px solid var(--color-blue);
+}
+
+.memory-status strong {
+	color: var(--text-normal);
+	font-weight: 600;
 }

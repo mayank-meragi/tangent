@@ -3,8 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import { MODEL_CONFIGS, ModelConfig } from './modelConfigs';
 import { useChatMessages, ChatMessagesProvider } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
-import { SYSTEM_PROMPT } from './systemPrompt';
-import { PendingToolCall, ToolConfirmationResult, readMemory } from './tools';
+import { systemPrompt } from './systemPrompt';
+import { PendingToolCall, ToolConfirmationResult } from './tools';
 import { ConversationService, Conversation } from './conversationService';
 import HistoryTab from './HistoryTab';
 import IconButton from './src/components/IconButton';
@@ -13,7 +13,6 @@ import LucidIcon from './src/components/LucidIcon';
 import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
 import UserMessage from './src/components/UserMessage';
-import { MCPServerManager } from './src/components/MCPServerManager';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -199,7 +198,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [availableFiles, setAvailableFiles] = React.useState<{name: string, path: string}[]>([]);
   const [atMentionQuery, setAtMentionQuery] = React.useState('');
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
-  const [memoryContent, setMemoryContent] = React.useState<string>('');
+
   const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -254,10 +253,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     currentMessagesRef.current = messages;
   }, [messages]);
 
-  // Automatically load memory content when component mounts
-  useEffect(() => {
-    loadMemoryContent();
-  }, []);
+
 
 
 
@@ -354,17 +350,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     });
   };
 
-  // Function to automatically load memory content
-  const loadMemoryContent = async () => {
-    try {
-      const memoryResult = await readMemory(app, {});
-      if (memoryResult.type === 'text' && memoryResult.text) {
-        setMemoryContent(memoryResult.text);
-      }
-    } catch (error) {
-      console.error('Error loading memory content:', error);
-    }
-  };
+
 
   // History-related functions
   const saveCurrentConversation = async () => {
@@ -518,7 +504,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     if (!conversationHistory.some(msg => msg.role === 'system')) {
       conversationHistory.unshift({
         role: 'system',
-        parts: [{ text: SYSTEM_PROMPT }]
+        parts: [{ text: systemPrompt }]
       });
     }
     
@@ -698,10 +684,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
     // Build conversation history
     const conversationHistory: ConversationMessage[] = [];
-    let systemMessage = SYSTEM_PROMPT;
-    if (memoryContent) {
-      systemMessage += `\n\n## Assistant Memory\n\nHere is your memory about the user from previous conversations:\n\n${memoryContent}`;
-    }
+    const systemMessage = systemPrompt;
     conversationHistory.push({
       role: 'system',
       parts: [{ text: systemMessage }]
@@ -777,17 +760,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const mcpServerManager = plugin?.mcpServerManager;
   
   // Get fresh data from server manager
-  const getMCPServers = () => mcpServerManager?.getAllServerConfigs() || [];
   const getMCPServerStatuses = () => mcpServerManager?.getAllServerStatuses() || [];
   
-  // State to force refresh of MCP data
-  const [mcpRefreshKey, setMcpRefreshKey] = useState(0);
-  
-  // Function to refresh MCP data
-  const refreshMCPData = () => {
-    setMcpRefreshKey(prev => prev + 1);
-  };
-
   const handleNewChat = () => {
     clearMessages();
     setCurrentConversation(null);
@@ -827,10 +801,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             icon={<LucidIcon name="server" size={18} />}
             ariaLabel="Servers"
             title="Servers"
-            onClick={() => {
-              setActiveView('servers');
-              refreshMCPData();
-            }}
+            onClick={() => setActiveView('servers')}
           />
         </div>
       </div>
@@ -942,32 +913,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         />
       )}
       {activeView === 'servers' && (
-        <MCPServerManager
-          key={mcpRefreshKey}
-          servers={getMCPServers()}
-          serverStatuses={getMCPServerStatuses()}
-          onAddServer={(server: any) => { 
-            mcpServerManager?.addServer(server); 
-            setTimeout(refreshMCPData, 200);
-          }}
-          onRemoveServer={async (serverName: string) => { 
-            await mcpServerManager?.removeServer(serverName); 
-            setTimeout(refreshMCPData, 200);
-          }}
-          onToggleServer={async (serverName: string, enabled: boolean) => { 
-            mcpServerManager?.setServerEnabled(serverName, enabled); 
-            setTimeout(refreshMCPData, 200);
-          }}
-          onStartServer={async (serverName: string) => { 
-            await mcpServerManager?.startServer(serverName); 
-            setTimeout(refreshMCPData, 200);
-          }}
-          onStopServer={async (serverName: string) => { 
-            await mcpServerManager?.stopServer(serverName); 
-            setTimeout(refreshMCPData, 200);
-          }}
-          isPlaceholderServer={(serverName: string) => mcpServerManager?.isPlaceholderServer(serverName) || false}
-        />
+        <div style={{ padding: '16px' }}>
+          <h3>MCP Servers</h3>
+          <p>Server management has been simplified. Use the settings to configure MCP servers.</p>
+          <p>Current server statuses:</p>
+          <ul>
+            {getMCPServerStatuses().map((status: any) => (
+              <li key={status.name}>
+                {status.name}: {status.status}
+                {status.lastError && <span style={{ color: 'red' }}> - {status.lastError}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
