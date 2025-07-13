@@ -168,12 +168,15 @@ export const insertContentFunction: ToolFunction = {
 
 export async function insertContent(app: App, args: { path: string; operations: Array<{ startLine: number; content: string }> }): Promise<ToolResult> {
   try {
+    console.log('[insertContent] called with args:', JSON.stringify(args));
     const { path, operations } = args;
     const vault = app.vault;
     
     // Get the file
     const file = vault.getAbstractFileByPath(path);
+    console.log('[insertContent] file lookup:', file ? `Found file (${file.path})` : 'File not found');
     if (!file || !(file instanceof TFile)) {
+      console.log('[insertContent] ERROR: File not found or not a TFile:', path);
       return {
         type: 'error',
         error: `File not found: ${path}`
@@ -183,34 +186,48 @@ export async function insertContent(app: App, args: { path: string; operations: 
     // Read current content
     const currentContent = await vault.read(file);
     const lines = currentContent.split('\n');
+    console.log(`[insertContent] Read file: ${path}, line count: ${lines.length}`);
     
     // Sort operations by startLine in descending order to avoid line number shifts
     const sortedOperations = [...operations].sort((a, b) => b.startLine - a.startLine);
+    console.log('[insertContent] Sorted operations:', JSON.stringify(sortedOperations));
     
     // Apply insertions
     for (const operation of sortedOperations) {
-      const { startLine, content } = operation;
-      
-      if (startLine < 1 || startLine > lines.length + 1) {
+      let { startLine } = operation;
+      const { content } = operation;
+      const originalStartLine = startLine;
+      // If startLine is greater than lines.length + 1, append at end
+      // This prevents out-of-bounds errors and makes the tool more user-friendly
+      if (startLine < 1) {
+        console.log(`[insertContent] ERROR: Invalid line number: ${startLine}`);
         return {
           type: 'error',
-          error: `Invalid line number: ${startLine}. File has ${lines.length} lines.`
+          error: `Invalid line number: ${startLine}. Line number must be >= 1.`
         };
       }
-      
+      if (startLine > lines.length + 1) {
+        // Clamp to end of file
+        startLine = lines.length + 1;
+        console.log(`[insertContent] Adjusted startLine from ${originalStartLine} to ${startLine} (end of file)`);
+      }
       const contentLines = content.split('\n');
+      console.log(`[insertContent] Inserting at line ${startLine}:`, contentLines);
       lines.splice(startLine - 1, 0, ...contentLines);
     }
     
     // Write back the modified content
     const newContent = lines.join('\n');
+    console.log(`[insertContent] Writing modified content to file: ${path}, new line count: ${lines.length}`);
     await vault.modify(file, newContent);
+    console.log('[insertContent] Successfully wrote modified content.');
     
     return {
       type: 'text',
       text: `Successfully inserted content at ${operations.length} location(s) in ${path}`
     };
   } catch (error) {
+    console.log('[insertContent] ERROR:', error);
     return {
       type: 'error',
       error: `Error inserting content: ${error}`
