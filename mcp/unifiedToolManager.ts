@@ -411,13 +411,16 @@ export class UnifiedToolManager {
       inputSchema: this.sanitizeSchema(mcpTool.inputSchema),
       execute: async (args: any, timeout?: number): Promise<ToolResult> => {
         try {
+          console.log(`[MCP TOOL DEBUG] Executing MCP tool: ${mcpTool.toolName} on server: ${mcpTool.serverName}`);
           if (!this.mcpClient) throw new Error('MCPClient not set');
           const result = await this.mcpClient.callTool(mcpTool.serverName, mcpTool.toolName, args, timeout);
+          console.log(`[MCP TOOL DEBUG] MCP tool ${mcpTool.toolName} raw result:`, result);
           return {
             type: 'success',
             data: result
           };
         } catch (error) {
+          console.log(`[MCP TOOL DEBUG] MCP tool ${mcpTool.toolName} error:`, error);
           return {
             type: 'error',
             error: error instanceof Error ? error.message : 'Unknown error'
@@ -476,15 +479,21 @@ export class UnifiedToolManager {
   }
 
   async callTool(toolId: string, args: any, timeout?: number): Promise<ToolResult> {
+    console.log(`[UNIFIED DEBUG] Calling tool with ID: ${toolId}, args:`, args);
+    
     const tool = this.getTool(toolId);
     if (!tool) {
+      console.log(`[UNIFIED DEBUG] Tool not found: ${toolId}`);
       return {
         type: 'error',
         error: `Tool not found: ${toolId}`
       };
     }
 
-    return await tool.execute(args, timeout);
+    console.log(`[UNIFIED DEBUG] Found tool: ${tool.name} (type: ${tool.type})`);
+    const result = await tool.execute(args, timeout);
+    console.log(`[UNIFIED DEBUG] Tool execution result:`, result);
+    return result;
   }
 
   async updateMCPToolsFromServer(serverName: string): Promise<void> {

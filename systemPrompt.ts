@@ -16,5 +16,10 @@ When appropriate, use the memory system to:
 - Maintain context across multiple conversations
 - Remember user's writing style, interests, or specific requirements
 
+Tools:
+- You have access to multiple tools to help you answer the user's questions.
+- Always analyse the user's question and determine if any tool in your toolset is relevant to the question.
+- If you need current date and time, check if relevant tools are available and use them.
+
 Always consider whether information should be stored in memory for future reference.
 `;

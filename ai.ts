@@ -38,6 +38,7 @@ export async function streamAIResponse({
   app,
   thinkingBudget = 0,
   unifiedToolManager,
+  maxNestedCalls = 3, // Prevent infinite recursion
 }: {
   apiKey: string;
   modelId: string;
@@ -51,6 +52,7 @@ export async function streamAIResponse({
   app: App;
   thinkingBudget?: number;
   unifiedToolManager: any;
+  maxNestedCalls?: number;
 }) {
   if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
     if (onToken) onToken('[Gemini API key not set]');
@@ -106,6 +108,7 @@ export async function streamAIResponse({
       const t = tool as any;
       toolMap[t.name] = t;
       toolRequiresConfirmation[t.name] = !!t.requiresConfirmation;
+      console.log(`[AI DEBUG] Registered tool: ${t.name} (id: ${t.id}, type: ${t.type})`);
     }
 
     // Build config with thinking configuration
@@ -135,7 +138,7 @@ export async function streamAIResponse({
     const memoryContent = await memoryService.readMemory();
     
     // Convert our conversation messages to Gemini format
-    let geminiContents = messages.map(msg => ({
+    const geminiContents = messages.map(msg => ({
       role: msg.role === 'system' ? 'user' : msg.role, // Gemini treats system as user
       parts: msg.parts
     }));
@@ -252,21 +255,31 @@ export async function streamAIResponse({
         }
         
         // Execute the tool via unifiedToolManager
+        console.log(`[AI DEBUG] Looking for tool: ${name} in toolMap:`, Object.keys(toolMap));
         if (name && toolMap[name]) {
           try {
+            console.log(`[AI DEBUG] Executing tool: ${name} with args:`, args);
             const toolResult = await unifiedToolManager.callTool(toolMap[name].id, args || {});
-            
+            console.log(`[AI DEBUG] Tool result for ${name}:`, toolResult);
             
             if (onToolResult) {
               onToolResult(name, toolResult);
             }
             
             // Create function response
+            const responseContent = toolResult.type === 'success' ? toolResult.data : toolResult.error;
+            console.log(`[AI DEBUG] Tool ${name} response content:`, {
+              type: toolResult.type,
+              data: toolResult.data,
+              error: toolResult.error,
+              finalContent: responseContent
+            });
+            
             const functionResponse = {
               name: name,
               response: {
                 name: name,
-                content: toolResult
+                content: responseContent
               }
             };
             
@@ -277,13 +290,29 @@ export async function streamAIResponse({
               { role: 'user', parts: [{ functionResponse: functionResponse }] }
             ];
             
+            console.log(`[AI DEBUG] Follow-up conversation for tool ${name}:`, {
+              originalMessages: geminiContents.length,
+              functionCall: functionCall,
+              functionResponse: functionResponse,
+              totalMessages: followUpContents.length
+            });
+            
             
             
             // Send the tool result back to the model
+            console.log(`[AI DEBUG] Sending follow-up request for tool ${name} with result:`, functionResponse);
             const followUpResponse = await genAI.models.generateContent({
               model: modelId,
               contents: followUpContents,
               config: config
+            });
+            console.log(`[AI DEBUG] Follow-up response for tool ${name}:`, {
+              response: followUpResponse,
+              candidates: followUpResponse.candidates,
+              firstCandidate: followUpResponse.candidates?.[0],
+              content: followUpResponse.candidates?.[0]?.content,
+              parts: followUpResponse.candidates?.[0]?.content?.parts,
+              text: followUpResponse.text
             });
             
             // Handle thinking in follow-up response
@@ -310,20 +339,69 @@ export async function streamAIResponse({
             }
             
             // Stream the follow-up response
+            console.log(`[AI DEBUG] Processing follow-up response for tool ${name}:`, {
+              hasCandidates: !!followUpResponse.candidates,
+              hasParts: !!(followUpResponse.candidates && followUpResponse.candidates[0]?.content?.parts),
+              partsCount: followUpResponse.candidates?.[0]?.content?.parts?.length || 0,
+              hasText: !!followUpResponse.text,
+              text: followUpResponse.text
+            });
+            
             if (followUpResponse.candidates && followUpResponse.candidates[0]?.content?.parts) {
-              // Extract only non-thinking parts for the regular response
-              const responseParts = followUpResponse.candidates[0].content.parts
-                .filter((part: any) => (part as any).thought !== true && part.text)
-                .map((part: any) => part.text)
-                .join('');
+              // Log all parts to understand the structure
+              console.log(`[AI DEBUG] All response parts for tool ${name}:`, followUpResponse.candidates[0].content.parts);
               
-              if (responseParts) {
+              // Extract text parts (excluding thinking parts)
+              const textParts = followUpResponse.candidates[0].content.parts
+                .filter((part: any) => (part as any).thought !== true && part.text)
+                .map((part: any) => part.text);
+              
+              // Check if there are function calls in the response
+              const functionCallParts = followUpResponse.candidates[0].content.parts
+                .filter((part: any) => part.functionCall);
+              
+              console.log(`[AI DEBUG] Text parts for tool ${name}:`, textParts);
+              console.log(`[AI DEBUG] Function call parts for tool ${name}:`, functionCallParts);
+              
+              if (textParts.length > 0) {
+                const responseText = textParts.join('');
+                console.log(`[AI DEBUG] Calling onToken with text parts for tool ${name}:`, responseText);
+                onToken(responseText);
+              } else if (functionCallParts.length > 0) {
+                // If there are function calls but no text, we need to handle them
+                console.log(`[AI DEBUG] Found function calls in follow-up response for tool ${name}, processing them...`);
                 
-                onToken(responseParts);
+                // Use the helper function to handle nested function calls
+                await handleNestedFunctionCalls(
+                  functionCallParts,
+                  followUpContents,
+                  toolMap,
+                  unifiedToolManager,
+                  genAI,
+                  modelId,
+                  config,
+                  onToken,
+                  onToolCall,
+                  onToolResult,
+                  0,
+                  maxNestedCalls
+                );
+              } else {
+                console.log(`[AI DEBUG] No text or function call parts found for tool ${name}`);
+                // Try to get any available text from the response
+                const fallbackText = followUpResponse.text || '';
+                if (fallbackText) {
+                  console.log(`[AI DEBUG] Using fallback text for tool ${name}:`, fallbackText);
+                  onToken(fallbackText);
+                } else {
+                  console.log(`[AI DEBUG] No response content found for tool ${name}`);
+                }
               }
             } else if (followUpResponse.text) {
-              
+              console.log(`[AI DEBUG] Calling onToken with direct text for tool ${name}:`, followUpResponse.text);
               onToken(followUpResponse.text);
+            } else {
+              console.log(`[AI DEBUG] No response content found for tool ${name}`);
             }
             
           } catch (error) {
@@ -359,5 +437,118 @@ export async function streamAIResponse({
   } catch (error) {
     console.error('[AI DEBUG] Error in streamAIResponse:', error);
     if (onToken) onToken(`[Error: ${error}]`);
+  }
+}
+
+// Helper function to handle nested function calls
+async function handleNestedFunctionCalls(
+  functionCallParts: any[],
+  followUpContents: any[],
+  toolMap: Record<string, any>,
+  unifiedToolManager: any,
+  genAI: any,
+  modelId: string,
+  config: any,
+  onToken: (token: any) => void,
+  onToolCall?: (toolName: string, args: any) => void,
+  onToolResult?: (toolName: string, result: any) => void,
+  depth = 0,
+  maxDepth = 3
+): Promise<void> {
+  if (depth >= maxDepth) {
+    console.log(`[AI DEBUG] Maximum nested call depth (${maxDepth}) reached, stopping recursion`);
+    return;
+  }
+  
+  for (const functionCallPart of functionCallParts) {
+    const nestedFunctionCall = functionCallPart.functionCall;
+    if (!nestedFunctionCall) continue;
+    
+    const { name: nestedName, args: nestedArgs } = nestedFunctionCall;
+    
+    console.log(`[AI DEBUG] Processing nested function call (depth ${depth}): ${nestedName} with args:`, nestedArgs);
+    
+    if (onToolCall && nestedName) {
+      onToolCall(nestedName, nestedArgs || {});
+    }
+    
+    // Execute the nested tool
+    if (nestedName && toolMap[nestedName]) {
+      try {
+        console.log(`[AI DEBUG] Executing nested tool (depth ${depth}): ${nestedName} with args:`, nestedArgs);
+        const nestedToolResult = await unifiedToolManager.callTool(toolMap[nestedName].id, nestedArgs || {});
+        console.log(`[AI DEBUG] Nested tool result for ${nestedName}:`, nestedToolResult);
+        
+        if (onToolResult) {
+          onToolResult(nestedName, nestedToolResult);
+        }
+        
+        // Create nested function response
+        const nestedResponseContent = nestedToolResult.type === 'success' ? nestedToolResult.data : nestedToolResult.error;
+        const nestedFunctionResponse = {
+          name: nestedName,
+          response: {
+            name: nestedName,
+            content: nestedResponseContent
+          }
+        };
+        
+        // Build nested follow-up conversation
+        const nestedFollowUpContents = [
+          ...followUpContents,
+          { role: 'model', parts: [{ functionCall: nestedFunctionCall }] },
+          { role: 'user', parts: [{ functionResponse: nestedFunctionResponse }] }
+        ];
+        
+        console.log(`[AI DEBUG] Sending nested follow-up request for tool ${nestedName} (depth ${depth})`);
+        const nestedFollowUpResponse = await genAI.models.generateContent({
+          model: modelId,
+          contents: nestedFollowUpContents,
+          config: config
+        });
+        
+        // Process the nested follow-up response
+        if (nestedFollowUpResponse.candidates && nestedFollowUpResponse.candidates[0]?.content?.parts) {
+          const nestedTextParts = nestedFollowUpResponse.candidates[0].content.parts
+            .filter((part: any) => (part as any).thought !== true && part.text)
+            .map((part: any) => part.text);
+          
+          const nestedFunctionCallParts = nestedFollowUpResponse.candidates[0].content.parts
+            .filter((part: any) => part.functionCall);
+          
+          if (nestedTextParts.length > 0) {
+            const nestedResponseText = nestedTextParts.join('');
+            console.log(`[AI DEBUG] Calling onToken with nested response for tool ${nestedName}:`, nestedResponseText);
+            onToken(nestedResponseText);
+          } else if (nestedFunctionCallParts.length > 0) {
+            // Recursively handle further nested calls
+            await handleNestedFunctionCalls(
+              nestedFunctionCallParts,
+              nestedFollowUpContents,
+              toolMap,
+              unifiedToolManager,
+              genAI,
+              modelId,
+              config,
+              onToken,
+              onToolCall,
+              onToolResult,
+              depth + 1,
+              maxDepth
+            );
+          }
+        } else if (nestedFollowUpResponse.text) {
+          console.log(`[AI DEBUG] Calling onToken with nested direct text for tool ${nestedName}:`, nestedFollowUpResponse.text);
+          onToken(nestedFollowUpResponse.text);
+        }
+        
+      } catch (error) {
+        console.error(`[AI DEBUG] Nested tool execution error:`, error);
+        if (onToken) onToken(`[Nested Tool Error: ${error}]`);
+      }
+    } else {
+      console.error(`[AI DEBUG] Unknown nested tool:`, nestedName);
+      if (onToken) onToken(`[Unknown nested tool: ${nestedName}]`);
+    }
   }
 } 

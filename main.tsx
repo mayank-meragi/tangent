@@ -784,20 +784,21 @@ class ChatPanelView extends ItemView {
 			onThinking?: (thoughts: string) => void,
 			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>
 		) => {
-			await streamAIResponse({
-				apiKey: this.plugin.settings.geminiApiKey || '',
-				modelId,
-				messages: conversationHistory || [{ role: 'user', parts: [{ text: prompt }] }],
-				onToken,
-				onToolCall,
-				onToolResult,
-				onToolsComplete,
-				onThinking,
-				onToolConfirmationNeeded,
-				app: this.plugin.app,
-				thinkingBudget,
-				unifiedToolManager: this.plugin.unifiedToolManager,
-			});
+					await streamAIResponse({
+			apiKey: this.plugin.settings.geminiApiKey || '',
+			modelId,
+			messages: conversationHistory || [{ role: 'user', parts: [{ text: prompt }] }],
+			onToken,
+			onToolCall,
+			onToolResult,
+			onToolsComplete,
+			onThinking,
+			onToolConfirmationNeeded,
+			app: this.plugin.app,
+			thinkingBudget,
+			unifiedToolManager: this.plugin.unifiedToolManager,
+			maxNestedCalls: 3,
+		});
 		};
 
 		// Create React root and render chat panel

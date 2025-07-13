@@ -295,6 +295,8 @@ export class MCPClient {
   }
 
   async callTool(serverName: string, toolName: string, args: any, timeout?: number): Promise<any> {
+    console.log(`[MCP DEBUG] Calling tool ${toolName} on server ${serverName} with args:`, args);
+    
     const client = this.connections.get(serverName);
     if (!client) {
       throw new Error(`Server ${serverName} is not connected`);
@@ -302,6 +304,7 @@ export class MCPClient {
 
     // Normalize arguments
     const normalizedArgs = this.normalizeToolArguments(args, toolName);
+    console.log(`[MCP DEBUG] Normalized args for ${toolName}:`, normalizedArgs);
     
     // Generate progress token
     const progressToken = uuidv4();
@@ -334,6 +337,7 @@ export class MCPClient {
         // Clear the timeout
         clearTimeout(timeoutId);
         
+        console.log(`[MCP DEBUG] Tool ${toolName} result (with timeout):`, response);
         return response;
       } catch (error) {
         // Clear the timeout
@@ -343,11 +347,14 @@ export class MCPClient {
     }
 
     // No timeout or timeout is -1 (infinite)
-    return await client.callTool({
+    const result = await client.callTool({
       name: toolName,
       arguments: normalizedArgs,
       _meta: { progressToken }
     });
+    
+    console.log(`[MCP DEBUG] Tool ${toolName} result:`, result);
+    return result;
   }
 
   isConnected(serverName: string): boolean {
