@@ -1,0 +1,141 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [ created ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Required for generating release notes
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Type check
+      run: npm run build
+    
+    - name: Build plugin
+      run: npm run build
+    
+    - name: Verify build artifacts
+      run: |
+        echo "Checking build artifacts..."
+        ls -la
+        echo "main.js size:"
+        ls -lh main.js
+        echo "manifest.json:"
+        cat manifest.json
+        echo "versions.json:"
+        cat versions.json
+    
+    - name: Create release package
+      run: |
+        mkdir -p release
+        cp main.js manifest.json versions.json styles.css release/
+        if [ -d "src" ]; then
+          cp -r src release/
+        fi
+        cd release
+        zip -r ../tangent-plugin.zip .
+        cd ..
+        echo "Release package created: tangent-plugin.zip"
+        ls -lh tangent-plugin.zip
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          main.js
+          manifest.json
+          versions.json
+          styles.css
+          tangent-plugin.zip
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts
+        path: ./release-files
+    
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Get commits since last release
+        if [ "${{ github.event.release.tag_name }}" != "" ]; then
+          # Get previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${{ github.event.release.tag_name }}^ 2>/dev/null || echo "")
+          
+          if [ "$PREVIOUS_TAG" != "" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..${{ github.event.release.tag_name }})
+          else
+            COMMITS=$(git log --pretty=format:"- %s" --reverse)
+          fi
+        else
+          COMMITS=$(git log --pretty=format:"- %s" --reverse -10)
+        fi
+        
+        echo "commits<<EOF" >> $GITHUB_OUTPUT
+        echo "$COMMITS" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "Generated release notes with commits"
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          release-files/tangent-plugin.zip
+          release-files/main.js
+          release-files/manifest.json
+          release-files/versions.json
+        body: |
+          ## Tangent Copilot Plugin Release
+          
+          ### What's New
+          ${{ steps.release_notes.outputs.commits }}
+          
+          ### Installation
+          1. Download the `tangent-plugin.zip` file
+          2. Extract it to your Obsidian plugins folder
+          3. Enable the plugin in Obsidian settings
+          
+          ### Files Included
+          - `main.js` - Main plugin bundle
+          - `manifest.json` - Plugin metadata
+          - `versions.json` - Version compatibility
+          - `styles.css` - Plugin styles
+          
+          ### Requirements
+          - Obsidian version: 0.15.0 or higher
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Type check
+      run: npm run build
+    
+    - name: Build plugin
+      run: npm run build
+    
+    - name: Verify build artifacts
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "📦 Build artifacts:"
+        ls -la main.js manifest.json versions.json styles.css
+        echo "📊 main.js size:"
+        ls -lh main.js
+        echo "📋 manifest.json:"
+        cat manifest.json
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ github.sha }}
+        path: |
+          main.js
+          manifest.json
+          versions.json
+          styles.css
+        retention-days: 7 
