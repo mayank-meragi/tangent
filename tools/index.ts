@@ -7,6 +7,8 @@ export { readFile, readFileFunction } from './readFile';
 export { writeFile, writeFileFunction } from './writeFile';
 export { writeToMemory, writeToMemoryFunction } from './memory/writeToMemory';
 export { readMemory, readMemoryFunction } from './memory/readMemory';
+export { queryDataviewTasks, queryDataviewTasksFunction } from './dataviewTasks';
+export { writeDataviewTasks, writeDataviewTasksFunction } from './dataviewTasks';
 
 export type { ToolResult, ToolFunction, ToolCall } from './types';
 

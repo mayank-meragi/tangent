@@ -5,6 +5,7 @@ import ChatPanelWithProvider from './ChatPanel';
 import { streamAIResponse } from './ai';
 import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
 import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
+import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
 
 // Remember to rename these classes and interfaces!
 
@@ -96,6 +97,15 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 
+		// Add debug command for Tasks plugin integration
+		this.addCommand({
+			id: 'debug-tasks-integration',
+			name: 'Debug Tasks Plugin Integration',
+			callback: () => {
+				this.debugTasksIntegration();
+			}
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new GeminiSettingTab(this.app, this));
 
@@ -182,6 +192,63 @@ export default class MyPlugin extends Plugin {
 			// Activate the leaf
 			this.app.workspace.revealLeaf(this.chatPanelLeaf);
 		}
+	}
+
+	async debugTasksIntegration() {
+		console.log('🔍 DEBUGGING TASKS PLUGIN INTEGRATION');
+		console.log('=====================================');
+		
+		// Show all available plugins
+		const allPlugins = (this.app as any).plugins.plugins;
+		console.log('All available plugins:', Object.keys(allPlugins));
+		
+		// Check for Tasks plugin with different possible IDs
+		const possiblePluginIds = [
+			'obsidian-tasks',
+			'tasks',
+			'obsidian-tasks-group',
+			'obsidian-tasks-group-obsidian-tasks',
+			'obsidian-tasks-plugin'
+		];
+		
+		console.log('Looking for Tasks plugin with IDs:', possiblePluginIds);
+		
+		for (const id of possiblePluginIds) {
+			const plugin = allPlugins[id];
+			if (plugin) {
+				console.log(`Found plugin with ID '${id}':`, {
+					enabled: plugin.enabled,
+					hasSettings: !!plugin.settings,
+					hasInstance: !!plugin.instance,
+					hasData: !!plugin.data,
+					hasLoadData: !!plugin.loadData,
+					properties: Object.keys(plugin)
+				});
+			}
+		}
+		
+		// Try to get global filter
+		const globalFilter = await getObsidianTasksGlobalFilter(this.app);
+		console.log('Global filter:', globalFilter);
+		
+		if (globalFilter) {
+			const conditions = convertTasksFilterToDataviewConditions(globalFilter);
+			console.log('Converted conditions:', conditions);
+		}
+		
+		// Test with a simple query
+		console.log('\nTesting with sample tasks...');
+		const sampleTasks = [
+			'- [ ] #task this is a task 📅 2025-07-14',
+			'- [ ] this is not a task 📅 2025-07-14'
+		];
+		
+		sampleTasks.forEach((taskLine, index) => {
+			console.log(`Task ${index + 1}: ${taskLine}`);
+		});
+		
+		console.log('\nDebug complete. Check console for details.');
+		new Notice('Tasks integration debug complete. Check console for details.');
 	}
 }
 

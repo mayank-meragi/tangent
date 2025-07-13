@@ -4,7 +4,9 @@ import {
   readFile, 
   writeFile,
   writeToMemory,
-  readMemory
+  readMemory,
+  queryDataviewTasks,
+  writeDataviewTasks
 } from '../tools';
 import { MCPClient, MCPTool } from './mcpClient';
 
@@ -16,6 +18,7 @@ export interface UnifiedTool {
   serverName?: string;
   inputSchema: any;
   execute: (args: any, timeout?: number) => Promise<ToolResult>;
+  requiresConfirmation?: boolean;
 }
 
 export interface ToolResult {
@@ -180,6 +183,348 @@ export class UnifiedToolManager {
       execute: async (args: any, timeout?: number): Promise<ToolResult> => {
         try {
           const result = await readMemory(this.app, args);
+          return {
+            type: 'success',
+            data: result
+          };
+        } catch (error) {
+          return {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    });
+
+    // Query Dataview tasks tool
+    this.builtinTools.set('queryDataviewTasks', {
+      id: 'queryDataviewTasks',
+      name: 'queryDataviewTasks',
+      description: 'Query and retrieve tasks using Dataview plugin',
+      type: 'builtin',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Custom Dataview query (optional if using filters)'
+          },
+          queryType: {
+            type: 'string',
+            enum: ['TASK', 'LIST', 'TABLE'],
+            description: 'Type of Dataview query'
+          },
+          source: {
+            type: 'string',
+            description: 'Source file or folder to query'
+          },
+          filters: {
+            type: 'object',
+            properties: {
+              completed: {
+                type: 'boolean',
+                description: 'Filter by completion status'
+              },
+              due: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    description: 'Filter by due date (YYYY-MM-DD")'
+                  },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Filter by due date range'
+                  }
+                ],
+                description: 'Filter by due date (single date or range)'
+              },
+              created: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    description: 'Filter by creation date (YYYY-MM-DD)'
+                  },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Filter by creation date range'
+                  }
+                ],
+                description: 'Filter by creation date (single date or range)'
+              },
+              start: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    description: 'Filter by start date (YYYY-MM-DD)'
+                  },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Filter by start date range'
+                  }
+                ],
+                description: 'Filter by start date (single date or range)'
+              },
+              scheduled: {
+                oneOf: [
+                  {
+                    type: 'string',
+                    description: 'Filter by scheduled date (YYYY-MM-DD)'
+                  },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Filter by scheduled date range'
+                  }
+                ],
+                description: 'Filter by scheduled date (single date or range)'
+              },
+              tags: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Filter by tags'
+              },
+              project: {
+                type: 'string',
+                description: 'Filter by project metadata'
+              },
+              dateRange: {
+                type: 'object',
+                properties: {
+                  start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                  end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                },
+                description: 'Filter by general date range (affects created date)'
+              }
+            }
+          },
+          sort: {
+            type: 'object',
+            properties: {
+              field: { type: 'string', description: 'Field to sort by' },
+              order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort order' }
+            }
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of results'
+          },
+          format: {
+            type: 'string',
+            enum: ['json', 'text', 'markdown'],
+            description: 'Output format'
+          }
+        }
+      },
+      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
+        try {
+          const result = await queryDataviewTasks(this.app, args);
+          return {
+            type: 'success',
+            data: result
+          };
+        } catch (error) {
+          return {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    });
+
+    // Write Dataview tasks tool
+    this.builtinTools.set('writeDataviewTasks', {
+      id: 'writeDataviewTasks',
+      name: 'writeDataviewTasks',
+      description: 'Create and update tasks in Obsidian files',
+      type: 'builtin',
+      requiresConfirmation: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          operation: {
+            type: 'string',
+            enum: ['create', 'update', 'delete', 'toggle'],
+            description: 'Operation to perform'
+          },
+          file: {
+            type: 'string',
+            description: 'Target file path'
+          },
+          tasks: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                text: { type: 'string', description: 'Task description' },
+                completed: { type: 'boolean', description: 'Completion status' },
+                due: {
+                  oneOf: [
+                    { type: 'string', description: 'Due date (YYYY-MM-DD)' },
+                    {
+                      type: 'object',
+                      properties: {
+                        start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                        end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                      },
+                      description: 'Due date range'
+                    }
+                  ],
+                  description: 'Due date (single date or range)'
+                },
+                created: {
+                  oneOf: [
+                    { type: 'string', description: 'Creation date (YYYY-MM-DD)' },
+                    {
+                      type: 'object',
+                      properties: {
+                        start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                        end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                      },
+                      description: 'Creation date range'
+                    }
+                  ],
+                  description: 'Creation date (single date or range)'
+                },
+                start: {
+                  oneOf: [
+                    { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                    {
+                      type: 'object',
+                      properties: {
+                        start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                        end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                      },
+                      description: 'Start date range'
+                    }
+                  ],
+                  description: 'Start date (single date or range)'
+                },
+                scheduled: {
+                  oneOf: [
+                    { type: 'string', description: 'Scheduled date (YYYY-MM-DD)' },
+                    {
+                      type: 'object',
+                      properties: {
+                        start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                        end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                      },
+                      description: 'Scheduled date range'
+                    }
+                  ],
+                  description: 'Scheduled date (single date or range)'
+                },
+                priority: { type: 'string', enum: ['high', 'medium', 'low'], description: 'Priority level' },
+                project: { type: 'string', description: 'Project association' },
+                tags: { type: 'array', items: { type: 'string' }, description: 'Tags' },
+                metadata: { type: 'object', description: 'Custom metadata' }
+              },
+              required: ['text']
+            },
+            description: 'Task data for bulk operations'
+          },
+          task: {
+            type: 'object',
+            properties: {
+              text: { type: 'string', description: 'Task description' },
+              completed: { type: 'boolean', description: 'Completion status' },
+              due: {
+                oneOf: [
+                  { type: 'string', description: 'Due date (YYYY-MM-DD)' },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Due date range'
+                  }
+                ],
+                description: 'Due date (single date or range)'
+              },
+              created: {
+                oneOf: [
+                  { type: 'string', description: 'Creation date (YYYY-MM-DD)' },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Creation date range'
+                  }
+                ],
+                description: 'Creation date (single date or range)'
+              },
+              start: {
+                oneOf: [
+                  { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Start date range'
+                  }
+                ],
+                description: 'Start date (single date or range)'
+              },
+              scheduled: {
+                oneOf: [
+                  { type: 'string', description: 'Scheduled date (YYYY-MM-DD)' },
+                  {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
+                      end: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+                    },
+                    description: 'Scheduled date range'
+                  }
+                ],
+                description: 'Scheduled date (single date or range)'
+              },
+              priority: { type: 'string', enum: ['high', 'medium', 'low'], description: 'Priority level' },
+              project: { type: 'string', description: 'Project association' },
+              tags: { type: 'array', items: { type: 'string' }, description: 'Tags' },
+              metadata: { type: 'object', description: 'Custom metadata' }
+            },
+            required: ['text'],
+            description: 'Single task data'
+          },
+          taskId: {
+            type: 'string',
+            description: 'Task identifier for update/delete operations'
+          },
+          position: {
+            type: 'string',
+            enum: ['top', 'bottom'],
+            description: 'Where to insert new tasks'
+          },
+          metadata: {
+            type: 'object',
+            description: 'Additional metadata'
+          }
+        },
+        required: ['operation', 'file']
+      },
+      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
+        try {
+          const result = await writeDataviewTasks(this.app, args);
           return {
             type: 'success',
             data: result

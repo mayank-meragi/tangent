@@ -12,7 +12,10 @@
 		"test-memory": "node scripts/test-memory-tools.js",
 		"test-memory-store": "node scripts/test-memory-store.js",
 		"test-memory-integration": "node scripts/test-memory-integration.js",
-		"check-neo4j": "node scripts/check-neo4j-status.js"
+		"check-neo4j": "node scripts/check-neo4j-status.js",
+		"test-tasks-integration": "node scripts/test-tasks-integration.js",
+		"test-task-filtering": "node scripts/test-task-filtering.js",
+		"debug-tasks": "node scripts/debug-tasks-integration.js"
 	},
 	"keywords": [],
 	"author": "",

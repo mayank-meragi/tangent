@@ -9,6 +9,26 @@ A powerful AI chat plugin for Obsidian that integrates with Gemini AI and suppor
 - **Conversation History**: Save and manage chat conversations
 - **File Context**: Include file content in conversations
 - **Tool Integration**: Built-in tools for file operations and MCP tools
+- **Obsidian Tasks Integration**: Automatic integration with Obsidian Tasks plugin global filters
+
+## Obsidian Tasks Integration
+
+The plugin automatically integrates with the [Obsidian Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks) to respect your global task filter settings. When you query tasks through the AI, it automatically applies your configured global filter from the Tasks plugin, ensuring consistency across your task management workflow.
+
+### How It Works
+
+1. **Automatic Detection**: The plugin detects if the Obsidian Tasks plugin is installed and enabled
+2. **Filter Reading**: Reads your global filter configuration from the Tasks plugin settings
+3. **Syntax Conversion**: Converts Tasks plugin filter syntax to Dataview query conditions
+4. **Automatic Application**: Applies the global filter to all task queries automatically
+
+### Setup
+
+1. Install the Obsidian Tasks plugin from the community plugins
+2. Configure a global filter in the Tasks plugin settings
+3. Use the `queryDataviewTasks` tool in Tangent chat - the global filter will be applied automatically
+
+For detailed documentation, see [TASKS_INTEGRATION.md](TASKS_INTEGRATION.md).
 
 ## MCP Server Management
 

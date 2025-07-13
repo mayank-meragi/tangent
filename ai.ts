@@ -5,6 +5,7 @@ import {
   ToolConfirmationResult,
 } from './tools';
 import { MemoryService } from './memoryService';
+import { getObsidianTasksGlobalFilter } from './tools/dataviewTasks';
 
 // Message type for conversation history
 export interface ConversationMessage {
@@ -220,10 +221,50 @@ export async function streamAIResponse({
       // Process each function call
       for (const functionCall of fullResponse.functionCalls) {
         const { name, args } = functionCall;
+        const normalizedArgs = normalizeDateRangeArgs(args || {});
+
+        // Force all create-task operations to use assistant_tasks.md
+        if (name === 'writeDataviewTasks' && normalizedArgs.operation === 'create') {
+          // Use provided file if specified, otherwise default to assistant_tasks.md
+          if (!normalizedArgs.file) {
+            normalizedArgs.file = 'assistant_tasks.md';
+          }
+          
+          // Add global filter tags to new tasks
+          const globalFilterTags = await extractGlobalFilterTags(app);
+          if (globalFilterTags.length > 0) {
+            // Handle both single task and bulk task creation
+            if (normalizedArgs.task) {
+              // Single task
+              if (!normalizedArgs.task.tags) {
+                normalizedArgs.task.tags = [];
+              }
+              // Add global filter tags that aren't already present
+              for (const tag of globalFilterTags) {
+                if (!normalizedArgs.task.tags.includes(tag)) {
+                  normalizedArgs.task.tags.push(tag);
+                }
+              }
+            } else if (normalizedArgs.tasks && Array.isArray(normalizedArgs.tasks)) {
+              // Bulk tasks
+              for (const task of normalizedArgs.tasks) {
+                if (!task.tags) {
+                  task.tags = [];
+                }
+                // Add global filter tags that aren't already present
+                for (const tag of globalFilterTags) {
+                  if (!task.tags.includes(tag)) {
+                    task.tags.push(tag);
+                  }
+                }
+              }
+            }
+          }
+        }
         
         
         if (onToolCall && name) {
-          onToolCall(name, args || {});
+          onToolCall(name, normalizedArgs);
         }
         
         // Check if tool requires confirmation
@@ -236,7 +277,7 @@ export async function streamAIResponse({
           const pendingTool: PendingToolCall = {
             id: `${name}-${Date.now()}`,
             name: name,
-            args: args || {},
+            args: normalizedArgs,
             requiresConfirmation: true
           };
           
@@ -258,8 +299,8 @@ export async function streamAIResponse({
         console.log(`[AI DEBUG] Looking for tool: ${name} in toolMap:`, Object.keys(toolMap));
         if (name && toolMap[name]) {
           try {
-            console.log(`[AI DEBUG] Executing tool: ${name} with args:`, args);
-            const toolResult = await unifiedToolManager.callTool(toolMap[name].id, args || {});
+            console.log(`[AI DEBUG] Executing tool: ${name} with args:`, normalizedArgs);
+            const toolResult = await unifiedToolManager.callTool(toolMap[name].id, normalizedArgs || {});
             console.log(`[AI DEBUG] Tool result for ${name}:`, toolResult);
             
             if (onToolResult) {
@@ -437,6 +478,62 @@ export async function streamAIResponse({
   } catch (error) {
     console.error('[AI DEBUG] Error in streamAIResponse:', error);
     if (onToken) onToken(`[Error: ${error}]`);
+  }
+}
+
+// Utility to normalize date range strings in tool arguments
+function normalizeDateRangeArgs(args: any): any {
+  if (!args || typeof args !== 'object') return args;
+  const dateFields = ['due', 'created', 'start', 'scheduled'];
+  const normalizeField = (val: any) => {
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(val)) {
+      const [start, end] = val.split('/');
+      return { start, end };
+    }
+    return val;
+  };
+  // Top-level fields
+  for (const field of dateFields) {
+    if (args.filters && args.filters[field]) {
+      args.filters[field] = normalizeField(args.filters[field]);
+    }
+    if (args[field]) {
+      args[field] = normalizeField(args[field]);
+    }
+  }
+  // Also handle tasks/task arrays for write tools
+  if (Array.isArray(args.tasks)) {
+    args.tasks = args.tasks.map((task: any) => {
+      for (const field of dateFields) {
+        if (task[field]) task[field] = normalizeField(task[field]);
+      }
+      return task;
+    });
+  }
+  if (args.task && typeof args.task === 'object') {
+    for (const field of dateFields) {
+      if (args.task[field]) args.task[field] = normalizeField(args.task[field]);
+    }
+  }
+  return args;
+}
+
+// Helper function to extract tags from global filter
+async function extractGlobalFilterTags(app: App): Promise<string[]> {
+  try {
+    const globalFilter = await getObsidianTasksGlobalFilter(app);
+    if (!globalFilter) return [];
+    
+    // Extract tag filters from global filter
+    const tagMatches = globalFilter.match(/#(\w+)/g);
+    if (tagMatches) {
+      return tagMatches.map((tag: string) => tag.substring(1)); // Remove #
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('[AI DEBUG] Error extracting global filter tags:', error);
+    return [];
   }
 }
 
