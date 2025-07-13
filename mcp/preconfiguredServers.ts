@@ -56,6 +56,18 @@ export function getPreconfiguredServers(): MCPServerConfig[] {
       enabled: false,
       timeout: 60,
       retryAttempts: 3
+    },
+    {
+      name: 'google-calendar',
+      transport: 'stdio',
+      command: 'npx',
+      args: ['@cocal/google-calendar-mcp'],
+      enabled: false,
+      timeout: 60,
+      retryAttempts: 3,
+      env: {
+        GOOGLE_OAUTH_CREDENTIALS: '' // User will set this path
+      }
     }
   ];
 }
@@ -282,6 +294,41 @@ Note: The git server provides Git repository operations and version control capa
 
 Note: The search server provides file and content search capabilities.`;
     
+    case 'google-calendar':
+      return `Google Calendar MCP Server Setup Instructions:
+
+1. Google Cloud Project Setup:
+   - Go to https://console.cloud.google.com
+   - Create a new project or select an existing one
+   - Enable the Google Calendar API for your project
+   - Go to "APIs & Services" > "OAuth consent screen"
+   - Configure the consent screen (External or Internal)
+   - Add your email as a test user
+
+2. Create OAuth Credentials:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Choose "Desktop app" as the application type
+   - Download the JSON credentials file
+   - Save it securely on your computer
+
+3. Configure Credentials Path:
+   - In the MCP Server Manager, set the GOOGLE_OAUTH_CREDENTIALS environment variable
+   - Point it to the path of your downloaded credentials JSON file
+   - Example: /path/to/your/gcp-oauth.keys.json
+
+4. First Authentication:
+   - Enable the Google Calendar server
+   - The server will open a browser window for OAuth authentication
+   - Complete the Google sign-in process
+   - Grant calendar access permissions
+
+5. Verify npx is available:
+   - Open terminal and run: which npx
+   - Should be available with Node.js installation
+
+Note: The Google Calendar server provides calendar management capabilities including creating, updating, and searching events.`;
+    
     default:
       return null;
   }
@@ -291,7 +338,7 @@ Note: The search server provides file and content search capabilities.`;
  * Check if a server requires manual installation
  */
 export function requiresManualInstallation(serverName: string): boolean {
-  return ['time', 'memory'].includes(serverName);
+  return ['time', 'memory', 'google-calendar'].includes(serverName);
 }
 
 /**
@@ -443,5 +490,81 @@ export function getCommandDiagnosticInfo(command: string): string {
    - Commands must be available in the system PATH
    - Try restarting Obsidian after installation
    - Check that ${command} is accessible from terminal`;
+  }
+}
+
+/**
+ * Check if Google Calendar credentials file exists and is valid
+ */
+export function checkGoogleCalendarCredentials(credentialsPath?: string): {
+  exists: boolean;
+  valid: boolean;
+  path: string;
+  error?: string;
+} {
+  if (!credentialsPath) {
+    return {
+      exists: false,
+      valid: false,
+      path: 'Not configured',
+      error: 'GOOGLE_OAUTH_CREDENTIALS environment variable not set'
+    };
+  }
+
+  try {
+    const exists = fs.existsSync(credentialsPath);
+    if (!exists) {
+      return {
+        exists: false,
+        valid: false,
+        path: credentialsPath,
+        error: 'Credentials file does not exist'
+      };
+    }
+
+    // Check if file is readable
+    fs.accessSync(credentialsPath, fs.constants.R_OK);
+
+    // Try to parse as JSON to validate format
+    const content = fs.readFileSync(credentialsPath, 'utf8');
+    const credentials = JSON.parse(content);
+
+    // Basic validation of Google OAuth credentials structure
+    if (!credentials.installed && !credentials.web) {
+      return {
+        exists: true,
+        valid: false,
+        path: credentialsPath,
+        error: 'Invalid credentials format: missing installed or web property'
+      };
+    }
+
+    // Check for required fields in installed credentials
+    if (credentials.installed) {
+      const requiredFields = ['client_id', 'client_secret', 'auth_uri', 'token_uri'];
+      const missingFields = requiredFields.filter(field => !credentials.installed[field]);
+      
+      if (missingFields.length > 0) {
+        return {
+          exists: true,
+          valid: false,
+          path: credentialsPath,
+          error: `Missing required fields: ${missingFields.join(', ')}`
+        };
+      }
+    }
+
+    return {
+      exists: true,
+      valid: true,
+      path: credentialsPath
+    };
+  } catch (error) {
+    return {
+      exists: false,
+      valid: false,
+      path: credentialsPath,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 } 

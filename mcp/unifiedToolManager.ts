@@ -408,7 +408,7 @@ export class UnifiedToolManager {
       description: mcpTool.description,
       type: 'mcp',
       serverName: mcpTool.serverName,
-      inputSchema: mcpTool.inputSchema,
+      inputSchema: this.sanitizeSchema(mcpTool.inputSchema),
       execute: async (args: any, timeout?: number): Promise<ToolResult> => {
         try {
           if (!this.mcpClient) throw new Error('MCPClient not set');
@@ -426,6 +426,42 @@ export class UnifiedToolManager {
       }
     };
     this.mcpTools.set(tool.id, tool);
+  }
+
+  /**
+   * Sanitize schema to be compatible with Gemini's tool format requirements
+   * Gemini only supports 'enum' and 'date-time' formats for STRING types
+   */
+  private sanitizeSchema(schema: any): any {
+    if (!schema || typeof schema !== 'object') {
+      return schema;
+    }
+
+    const sanitized = { ...schema };
+
+    // Handle properties
+    if (sanitized.properties) {
+      for (const [key, prop] of Object.entries(sanitized.properties)) {
+        if (typeof prop === 'object' && prop !== null) {
+          sanitized.properties[key] = this.sanitizeSchema(prop);
+        }
+      }
+    }
+
+    // Handle items (for arrays)
+    if (sanitized.items) {
+      sanitized.items = this.sanitizeSchema(sanitized.items);
+    }
+
+    // Handle format field for string types
+    if (sanitized.type === 'string' && sanitized.format) {
+      // Remove unsupported formats, keep only 'enum' and 'date-time'
+      if (sanitized.format !== 'enum' && sanitized.format !== 'date-time') {
+        delete sanitized.format;
+      }
+    }
+
+    return sanitized;
   }
 
   getAllTools(): UnifiedTool[] {

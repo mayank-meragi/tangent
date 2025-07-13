@@ -4,7 +4,7 @@ import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
 import { streamAIResponse } from './ai';
 import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
-import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess } from './mcp/preconfiguredServers';
+import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
 
 // Remember to rename these classes and interfaces!
 
@@ -314,6 +314,39 @@ class MCPServerManagerModal extends Modal {
 						`;
 					}
 				}
+
+				// Special handling for Google Calendar server
+				if (status.name === 'google-calendar') {
+					const config = this.plugin.mcpServerManager.getServerConfig(status.name);
+					if (config && config.env) {
+						const credentialsPath = config.env.GOOGLE_OAUTH_CREDENTIALS as string;
+						const credentialsStatus = checkGoogleCalendarCredentials(credentialsPath);
+						const calendarEl = details.createEl('div', { cls: 'google-calendar-status' });
+						
+						if (!credentialsStatus.exists) {
+							calendarEl.innerHTML = `
+								<strong>Google Calendar Credentials Status:</strong><br>
+								❌ Credentials not configured<br>
+								Error: ${credentialsStatus.error}<br>
+								Please set the GOOGLE_OAUTH_CREDENTIALS environment variable to your OAuth credentials file path.
+							`;
+						} else if (!credentialsStatus.valid) {
+							calendarEl.innerHTML = `
+								<strong>Google Calendar Credentials Status:</strong><br>
+								⚠️ Credentials file exists but is invalid<br>
+								Path: ${credentialsStatus.path}<br>
+								Error: ${credentialsStatus.error}<br>
+								Please check your OAuth credentials file format.
+							`;
+						} else {
+							calendarEl.innerHTML = `
+								<strong>Google Calendar Credentials Status:</strong><br>
+								✅ Credentials configured and valid<br>
+								Path: ${credentialsStatus.path}
+							`;
+						}
+					}
+				}
 			}
 			
 			// Installation instructions for stopped servers
@@ -384,6 +417,18 @@ class MCPServerManagerModal extends Modal {
 					new Notice(`Failed to remove server: ${error}`);
 				}
 			});
+
+			// Configuration button for Google Calendar
+			if (status.name === 'google-calendar') {
+				const configEl = controls.createEl('button', { 
+					text: 'Configure Credentials',
+					cls: 'mod-cta'
+				});
+				
+				configEl.addEventListener('click', () => {
+					this.showGoogleCalendarConfig(status.name);
+				});
+			}
 		});
 	}
 
@@ -433,6 +478,9 @@ class MCPServerManagerModal extends Modal {
 				case 'search':
 					description = 'Provides file and content search capabilities. Find files and text across your system.';
 					break;
+				case 'google-calendar':
+					description = 'Provides Google Calendar integration. Create, update, delete, and search calendar events. Requires OAuth setup.';
+					break;
 				default:
 					description = 'MCP server providing additional tools and capabilities.';
 			}
@@ -467,6 +515,124 @@ class MCPServerManagerModal extends Modal {
 	onClose() {
 		const { contentEl } = this;
 		contentEl.empty();
+	}
+
+	private showGoogleCalendarConfig(serverName: string) {
+		const config = this.plugin.mcpServerManager.getServerConfig(serverName);
+		if (!config) return;
+
+		const currentPath = config.env?.GOOGLE_OAUTH_CREDENTIALS as string || '';
+		
+		const modal = new Modal(this.app);
+		modal.titleEl.setText('Configure Google Calendar Credentials');
+		
+		const content = modal.contentEl.createDiv('google-calendar-config');
+		
+		// Instructions
+		content.createEl('p', { 
+			text: 'Set the path to your Google OAuth credentials JSON file:',
+			cls: 'config-instructions'
+		});
+		
+		// File path input
+		const inputContainer = content.createDiv('input-container');
+		const input = inputContainer.createEl('input', {
+			type: 'text',
+			placeholder: '/path/to/your/gcp-oauth.keys.json',
+			value: currentPath
+		});
+		
+		// Browse button
+		const browseBtn = inputContainer.createEl('button', {
+			text: 'Browse',
+			cls: 'mod-cta'
+		});
+		
+		browseBtn.addEventListener('click', () => {
+			// Create a file input element
+			const fileInput = document.createElement('input');
+			fileInput.type = 'file';
+			fileInput.accept = '.json';
+			fileInput.style.display = 'none';
+			
+			fileInput.addEventListener('change', (event) => {
+				const target = event.target as HTMLInputElement;
+				if (target.files && target.files[0]) {
+					const file = target.files[0];
+					// For security reasons, we can't get the full path in the browser
+					// So we'll just show the filename and let user enter the full path
+					input.value = file.name;
+				}
+			});
+			
+			fileInput.click();
+		});
+		
+		// Validation status
+		const statusEl = content.createDiv('validation-status');
+		const updateValidation = () => {
+			const path = input.value.trim();
+			const status = checkGoogleCalendarCredentials(path);
+			
+			if (!status.exists) {
+				statusEl.innerHTML = `<span style="color: red;">❌ ${status.error}</span>`;
+			} else if (!status.valid) {
+				statusEl.innerHTML = `<span style="color: orange;">⚠️ ${status.error}</span>`;
+			} else {
+				statusEl.innerHTML = `<span style="color: green;">✅ Credentials file is valid</span>`;
+			}
+		};
+		
+		input.addEventListener('input', updateValidation);
+		updateValidation();
+		
+		// Setup instructions
+		const instructionsEl = content.createDiv('setup-instructions');
+		instructionsEl.innerHTML = `
+			<strong>Setup Instructions:</strong><br>
+			1. Go to <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a><br>
+			2. Create a project and enable Google Calendar API<br>
+			3. Create OAuth 2.0 credentials (Desktop app type)<br>
+			4. Download the JSON credentials file<br>
+			5. Enter the full path to the file above
+		`;
+		
+		// Buttons
+		const buttonContainer = content.createDiv('button-container');
+		
+		const saveBtn = buttonContainer.createEl('button', {
+			text: 'Save',
+			cls: 'mod-cta'
+		});
+		
+		const cancelBtn = buttonContainer.createEl('button', {
+			text: 'Cancel',
+			cls: 'mod-warning'
+		});
+		
+		saveBtn.addEventListener('click', async () => {
+			try {
+				const newPath = input.value.trim();
+				const newEnv = { ...config.env, GOOGLE_OAUTH_CREDENTIALS: newPath };
+				
+				this.plugin.mcpServerManager.updateServerConfig(serverName, {
+					env: newEnv
+				});
+				
+				new Notice('Google Calendar credentials updated successfully');
+				modal.close();
+				this.onOpen(); // Refresh the modal
+			} catch (error) {
+				console.error('Failed to update credentials:', error);
+				new Notice(`Failed to update credentials: ${error}`);
+			}
+		});
+		
+		cancelBtn.addEventListener('click', () => {
+			modal.close();
+		});
+		
+		modal.open();
 	}
 }
 

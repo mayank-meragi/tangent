@@ -620,3 +620,146 @@ textarea:focus {
 	color: var(--text-normal);
 	font-weight: 600;
 }
+
+/* Google Calendar Configuration Modal Styles */
+.google-calendar-config {
+	padding: 20px;
+	max-width: 600px;
+}
+
+.google-calendar-config .config-instructions {
+	margin-bottom: 16px;
+	color: var(--text-normal);
+	font-weight: 500;
+}
+
+.google-calendar-config .input-container {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 16px;
+	align-items: center;
+}
+
+.google-calendar-config .input-container input {
+	flex: 1;
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: 0.9em;
+}
+
+.google-calendar-config .input-container input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+.google-calendar-config .input-container button {
+	padding: 8px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.85em;
+	transition: all 0.2s ease;
+}
+
+.google-calendar-config .input-container button:hover {
+	background: var(--background-secondary);
+	border-color: var(--interactive-accent);
+}
+
+.google-calendar-config .validation-status {
+	margin-bottom: 16px;
+	padding: 8px 12px;
+	border-radius: 4px;
+	background: var(--background-secondary);
+	font-size: 0.9em;
+}
+
+.google-calendar-config .setup-instructions {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 12px;
+	margin-bottom: 20px;
+	font-size: 0.85em;
+	line-height: 1.4;
+	border-left: 4px solid var(--color-blue);
+}
+
+.google-calendar-config .setup-instructions strong {
+	color: var(--text-normal);
+	font-weight: 600;
+}
+
+.google-calendar-config .setup-instructions a {
+	color: var(--interactive-accent);
+	text-decoration: none;
+}
+
+.google-calendar-config .setup-instructions a:hover {
+	text-decoration: underline;
+}
+
+.google-calendar-config .button-container {
+	display: flex;
+	gap: 12px;
+	justify-content: flex-end;
+}
+
+.google-calendar-config .button-container button {
+	padding: 8px 16px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	font-size: 0.9em;
+	transition: all 0.2s ease;
+}
+
+.google-calendar-config .button-container button:hover {
+	background: var(--background-secondary);
+	border-color: var(--interactive-accent);
+}
+
+.google-calendar-config .button-container button.mod-cta {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.google-calendar-config .button-container button.mod-cta:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.google-calendar-config .button-container button.mod-warning {
+	background: var(--color-red);
+	color: white;
+	border-color: var(--color-red);
+}
+
+.google-calendar-config .button-container button.mod-warning:hover {
+	background: var(--color-red-tint);
+}
+
+/* Google Calendar Status Styles */
+.google-calendar-status {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 12px;
+	margin: 12px 0;
+	font-size: 0.85em;
+	line-height: 1.4;
+	border-left: 4px solid var(--color-green);
+}
+
+.google-calendar-status strong {
+	color: var(--text-normal);
+	font-weight: 600;
+}
