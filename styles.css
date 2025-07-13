@@ -68,6 +68,170 @@ If your plugin does not need CSS, delete this file.
 	-webkit-user-select: text;
 	cursor: text;
 }
+
+/* Enhanced AI Message Styling */
+.ai-message-container {
+	user-select: text;
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
+	position: relative;
+}
+
+.ai-message-container:hover .message-copy-button {
+	opacity: 1;
+}
+
+.message-copy-button {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
+	z-index: 20;
+}
+
+.message-copy-button:hover {
+	opacity: 1;
+}
+
+.ai-message-content {
+	user-select: text;
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
+	cursor: text;
+}
+
+.ai-message-content * {
+	user-select: text;
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
+}
+
+/* Code Block Styling */
+.code-block-container {
+	position: relative;
+	margin: 12px 0;
+	border-radius: 6px;
+	overflow: hidden;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+}
+
+.code-block-container:hover .code-block-copy-button {
+	opacity: 1;
+}
+
+.code-block-copy-button {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
+	z-index: 10;
+}
+
+.code-block-copy-button:hover {
+	opacity: 1;
+}
+
+/* Text Selection Styling */
+.ai-message-content ::selection {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ai-message-content ::-moz-selection {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* Enhanced copy button styling */
+.code-block-container button {
+	transition: all 0.2s ease-in-out;
+}
+
+.code-block-container button:hover {
+	transform: scale(1.05);
+	background: var(--background-secondary) !important;
+}
+
+/* Ensure all text elements are selectable */
+.ai-message-content p,
+.ai-message-content div,
+.ai-message-content span,
+.ai-message-content pre,
+.ai-message-content code,
+.ai-message-content blockquote,
+.ai-message-content ul,
+.ai-message-content ol,
+.ai-message-content li,
+.ai-message-content h1,
+.ai-message-content h2,
+.ai-message-content h3,
+.ai-message-content h4,
+.ai-message-content h5,
+.ai-message-content h6 {
+	user-select: text !important;
+	-webkit-user-select: text !important;
+	-moz-user-select: text !important;
+	-ms-user-select: text !important;
+	cursor: text;
+}
+
+/* AI message wrapper styling */
+.ai-message-wrapper {
+	user-select: text !important;
+	-webkit-user-select: text !important;
+	-moz-user-select: text !important;
+	-ms-user-select: text !important;
+}
+
+/* Enhanced text selection feedback */
+.ai-message-content:focus {
+	outline: none;
+	background: var(--background-secondary);
+	border-radius: 4px;
+	padding: 4px;
+	margin: -4px;
+}
+
+/* Double-click to select all text in a message */
+.ai-message-content {
+	transition: background-color 0.2s ease-in-out;
+}
+
+.ai-message-content:hover {
+	background: var(--background-secondary);
+	border-radius: 4px;
+	padding: 4px;
+	margin: -4px;
+}
+
+/* Ensure ReactMarkdown components are selectable */
+.ai-message-content [data-reactroot] {
+	user-select: text !important;
+	-webkit-user-select: text !important;
+	-moz-user-select: text !important;
+	-ms-user-select: text !important;
+}
+
+/* Prevent any interference with text selection */
+.ai-message-container * {
+	pointer-events: auto;
+}
+
+/* Ensure buttons don't interfere with text selection */
+.message-copy-button,
+.code-block-copy-button {
+	pointer-events: auto;
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+}
 .tangent-chat-input-container {
 	background: var(--background-secondary-alt);
 	display: flex;

@@ -24,9 +24,13 @@ const ChatMessageContainer: React.FC<ChatMessageContainerProps> = ({
         width: isUser ? '100%' : undefined,
         border: isUser ? '1px solid var(--background-modifier-border)' : 'none',
         position: 'relative',
+        userSelect: 'text',
+        WebkitUserSelect: 'text',
+        MozUserSelect: 'text',
+        msUserSelect: 'text',
         ...style,
       }}
-      className={isUser ? 'user-message-container' : ''}
+      className={isUser ? 'user-message-container' : 'ai-message-wrapper'}
     >
       {children}
       {timestamp && (
