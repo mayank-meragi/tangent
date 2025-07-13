@@ -3,6 +3,9 @@ import {
   listVaultFiles, 
   readFile, 
   writeFile,
+  insertContent,
+  searchAndReplace,
+  manageFiles,
   writeToMemory,
   readMemory,
   queryDataviewTasks,
@@ -38,18 +41,30 @@ export class UnifiedToolManager {
   }
 
   private initializeBuiltinTools(): void {
-    // List vault files tool
+    // Enhanced list vault files tool
     this.builtinTools.set('listVaultFiles', {
       id: 'listVaultFiles',
       name: 'listVaultFiles',
-      description: 'List all files in the vault',
+      description: 'List files and folders in the Obsidian vault with advanced filtering options',
       type: 'builtin',
       inputSchema: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: 'Path to list files from (optional)'
+            description: 'Optional path to list files from (defaults to vault root)'
+          },
+          search: {
+            type: 'string',
+            description: 'Optional search term to filter files by name'
+          },
+          type: {
+            type: 'string',
+            description: 'Optional filter by type: "file", "folder", or "all" (default: "all")'
+          },
+          recursive: {
+            type: 'boolean',
+            description: 'Whether to include subdirectories (default: false)'
           }
         }
       },
@@ -69,18 +84,18 @@ export class UnifiedToolManager {
       }
     });
 
-    // Read file tool
+    // Enhanced read file tool
     this.builtinTools.set('readFile', {
       id: 'readFile',
       name: 'readFile',
-      description: 'Read a file from the vault',
+      description: 'Read the content of a file from the Obsidian vault with line numbers. Automatically extracts text from PDF and DOCX files. Returns content with line numbers prefixed for easy reference.',
       type: 'builtin',
       inputSchema: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: 'Path to the file to read'
+            description: 'The path to the file to read (relative to vault root)'
           }
         },
         required: ['path']
@@ -101,25 +116,30 @@ export class UnifiedToolManager {
       }
     });
 
-    // Write file tool
+    // Enhanced write file tool
     this.builtinTools.set('writeFile', {
       id: 'writeFile',
       name: 'writeFile',
-      description: 'Write content to a file in the vault',
+      description: 'Write complete content to a file. If the file exists, it will be overwritten. If it doesn\'t exist, it will be created. Automatically creates any directories needed.',
       type: 'builtin',
+      requiresConfirmation: true,
       inputSchema: {
         type: 'object',
         properties: {
           path: {
             type: 'string',
-            description: 'Path to the file to write'
+            description: 'The path to the file to write (relative to vault root)'
           },
           content: {
             type: 'string',
-            description: 'Content to write to the file'
+            description: 'The complete content to write to the file'
+          },
+          lineCount: {
+            type: 'number',
+            description: 'The number of lines in the file (for validation)'
           }
         },
-        required: ['path', 'content']
+        required: ['path', 'content', 'lineCount']
       },
       execute: async (args: any, timeout?: number): Promise<ToolResult> => {
         try {
@@ -736,6 +756,180 @@ export class UnifiedToolManager {
           // This tool is no longer available, so it will throw an error.
           // This is a consequence of removing the analyzeGraph import.
           throw new Error('analyze_graph tool is no longer available.');
+        } catch (error) {
+          return {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    });
+
+    // Enhanced file operation tools
+    // Insert content tool
+    this.builtinTools.set('insertContent', {
+      id: 'insertContent',
+      name: 'insertContent',
+      description: 'Insert content at specific line positions in a file. Allows precise insertions without overwriting existing content.',
+      type: 'builtin',
+      requiresConfirmation: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'The path to the file to insert content into'
+          },
+          operations: {
+            type: 'array',
+            description: 'Array of insertion operations',
+            items: {
+              type: 'object',
+              properties: {
+                startLine: {
+                  type: 'number',
+                  description: 'The line number where content should be inserted'
+                },
+                content: {
+                  type: 'string',
+                  description: 'The content to insert'
+                }
+              },
+              required: ['startLine', 'content']
+            }
+          }
+        },
+        required: ['path', 'operations']
+      },
+      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
+        try {
+          const result = await insertContent(this.app, args);
+          return {
+            type: 'success',
+            data: result
+          };
+        } catch (error) {
+          return {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    });
+
+    // Search and replace tool
+    this.builtinTools.set('searchAndReplace', {
+      id: 'searchAndReplace',
+      name: 'searchAndReplace',
+      description: 'Perform search and replace operations on a file. Supports regex patterns, line range restrictions, and case sensitivity options.',
+      type: 'builtin',
+      requiresConfirmation: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'The path of the file to modify'
+          },
+          operations: {
+            type: 'array',
+            description: 'Array of search/replace operations',
+            items: {
+              type: 'object',
+              properties: {
+                search: {
+                  type: 'string',
+                  description: 'The text or pattern to search for'
+                },
+                replace: {
+                  type: 'string',
+                  description: 'The text to replace matches with'
+                },
+                startLine: {
+                  type: 'number',
+                  description: 'Starting line number for restricted replacement (optional)'
+                },
+                endLine: {
+                  type: 'number',
+                  description: 'Ending line number for restricted replacement (optional)'
+                },
+                useRegex: {
+                  type: 'boolean',
+                  description: 'Whether to treat search as a regex pattern (default: false)'
+                },
+                ignoreCase: {
+                  type: 'boolean',
+                  description: 'Whether to ignore case when matching (default: false)'
+                }
+              },
+              required: ['search', 'replace']
+            }
+          }
+        },
+        required: ['path', 'operations']
+      },
+      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
+        try {
+          const result = await searchAndReplace(this.app, args);
+          return {
+            type: 'success',
+            data: result
+          };
+        } catch (error) {
+          return {
+            type: 'error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+          };
+        }
+      }
+    });
+
+    // Manage files tool
+    this.builtinTools.set('manageFiles', {
+      id: 'manageFiles',
+      name: 'manageFiles',
+      description: 'Perform file and folder management operations like moving, renaming, deleting, and creating folders.',
+      type: 'builtin',
+      requiresConfirmation: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          operations: {
+            type: 'array',
+            description: 'Array of file management operations',
+            items: {
+              type: 'object',
+              properties: {
+                action: {
+                  type: 'string',
+                  description: 'The type of operation: "move", "delete", or "create_folder"'
+                },
+                sourcePath: {
+                  type: 'string',
+                  description: 'The current path of the file or folder (for move/delete)'
+                },
+                destinationPath: {
+                  type: 'string',
+                  description: 'The new path for the file or folder (for move)'
+                },
+                path: {
+                  type: 'string',
+                  description: 'The path for the operation (for delete/create_folder)'
+                }
+              },
+              required: ['action']
+            }
+          }
+        },
+        required: ['operations']
+      },
+      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
+        try {
+          const result = await manageFiles(this.app, args);
+          return {
+            type: 'success',
+            data: result
+          };
         } catch (error) {
           return {
             type: 'error',

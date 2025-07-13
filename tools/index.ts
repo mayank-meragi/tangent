@@ -2,11 +2,27 @@
 export * from './types';
 
 // Export all tools for Google GenAI SDK
-export { listVaultFiles, listVaultFilesFunction } from './listVaultFiles';
-export { readFile, readFileFunction } from './readFile';
-export { writeFile, writeFileFunction } from './writeFile';
+// Enhanced file operations (replacing old ones)
+export { 
+  readFile, 
+  readFileFunction,
+  writeFile, 
+  writeFileFunction,
+  insertContent,
+  insertContentFunction,
+  searchAndReplace,
+  searchAndReplaceFunction,
+  manageFiles,
+  manageFilesFunction,
+  listVaultFiles,
+  listVaultFilesFunction
+} from './enhancedFileOperations';
+
+// Memory tools
 export { writeToMemory, writeToMemoryFunction } from './memory/writeToMemory';
 export { readMemory, readMemoryFunction } from './memory/readMemory';
+
+// Task tools
 export { queryDataviewTasks, queryDataviewTasksFunction } from './dataviewTasks';
 export { writeDataviewTasks, writeDataviewTasksFunction } from './dataviewTasks';
 
