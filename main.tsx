@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView } from 'obsidian';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
@@ -39,11 +39,19 @@ export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
 	public mcpServerManager!: MCPServerManager;
 	public unifiedToolManager!: UnifiedToolManager;
-	private chatPanelRoot: Root | null = null;
+	public chatPanelRoot: Root | null = null;
 	private chatPanelLeaf: WorkspaceLeaf | null = null;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Register the custom view type
+		this.registerView('tangent-chat', (leaf: WorkspaceLeaf) => {
+			return new ChatPanelView(leaf, this);
+		});
+
+		// Make plugin instance globally accessible for ChatPanel component
+		(window as any).tangentPluginInstance = this;
 
 		// Initialize MCP managers
 		this.initializeMCP();
@@ -112,6 +120,15 @@ export default class MyPlugin extends Plugin {
 			this.chatPanelRoot.unmount();
 			this.chatPanelRoot = null;
 		}
+
+		// Close any open chat panels
+		const existingLeaves = this.app.workspace.getLeavesOfType('tangent-chat');
+		existingLeaves.forEach(leaf => {
+			this.app.workspace.detachLeavesOfType('tangent-chat');
+		});
+
+		// Clean up global reference
+		delete (window as any).tangentPluginInstance;
 	}
 
 	async loadSettings() {
@@ -161,47 +178,6 @@ export default class MyPlugin extends Plugin {
 				type: 'tangent-chat',
 				active: true,
 			});
-
-			// Create a wrapper function to match the expected signature
-			const streamAIResponseWrapper = async (
-				prompt: string,
-				onToken: (token: string) => void,
-				modelId: string,
-				onToolCall: (toolName: string, toolArgs: any) => void,
-				onToolResult: (toolName: string, result: any) => void,
-				onToolsComplete: (toolResults: string) => void,
-				conversationHistory?: any[],
-				thinkingBudget?: number,
-				onThinking?: (thoughts: string) => void,
-				onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>
-			) => {
-				await streamAIResponse({
-					apiKey: this.settings.geminiApiKey || '',
-					modelId,
-					messages: conversationHistory || [{ role: 'user', parts: [{ text: prompt }] }],
-					onToken,
-					onToolCall,
-					onToolResult,
-					onToolsComplete,
-					onThinking,
-					onToolConfirmationNeeded,
-					app: this.app,
-					thinkingBudget,
-					unifiedToolManager: this.unifiedToolManager,
-				});
-			};
-
-			// Create React root and render chat panel
-			const container = this.chatPanelLeaf.view.containerEl;
-			this.chatPanelRoot = createRoot(container);
-			this.chatPanelRoot.render(
-				React.createElement(ChatPanelWithProvider, {
-					geminiApiKey: this.settings.geminiApiKey || '',
-					streamAIResponse: streamAIResponseWrapper,
-					app: this.app,
-					unifiedToolManager: this.unifiedToolManager
-				})
-			);
 
 			// Activate the leaf
 			this.app.workspace.revealLeaf(this.chatPanelLeaf);
@@ -606,6 +582,76 @@ class GeminiSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 				);
+		}
+	}
+}
+
+// Add the ChatPanelView class
+class ChatPanelView extends ItemView {
+	constructor(leaf: WorkspaceLeaf, private plugin: MyPlugin) {
+		super(leaf);
+	}
+
+	getViewType(): string {
+		return 'tangent-chat';
+	}
+
+	getDisplayText(): string {
+		return 'Tangent Chat';
+	}
+
+	getIcon(): string {
+		return 'message-circle';
+	}
+
+	async onOpen() {
+		// Create a wrapper function to match the expected signature
+		const streamAIResponseWrapper = async (
+			prompt: string,
+			onToken: (token: string) => void,
+			modelId: string,
+			onToolCall: (toolName: string, toolArgs: any) => void,
+			onToolResult: (toolName: string, result: any) => void,
+			onToolsComplete: (toolResults: string) => void,
+			conversationHistory?: any[],
+			thinkingBudget?: number,
+			onThinking?: (thoughts: string) => void,
+			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>
+		) => {
+			await streamAIResponse({
+				apiKey: this.plugin.settings.geminiApiKey || '',
+				modelId,
+				messages: conversationHistory || [{ role: 'user', parts: [{ text: prompt }] }],
+				onToken,
+				onToolCall,
+				onToolResult,
+				onToolsComplete,
+				onThinking,
+				onToolConfirmationNeeded,
+				app: this.plugin.app,
+				thinkingBudget,
+				unifiedToolManager: this.plugin.unifiedToolManager,
+			});
+		};
+
+		// Create React root and render chat panel
+		const container = this.containerEl;
+		this.plugin.chatPanelRoot = createRoot(container);
+		this.plugin.chatPanelRoot.render(
+			React.createElement(ChatPanelWithProvider, {
+				geminiApiKey: this.plugin.settings.geminiApiKey || '',
+				streamAIResponse: streamAIResponseWrapper,
+				app: this.plugin.app,
+				unifiedToolManager: this.plugin.unifiedToolManager
+			})
+		);
+	}
+
+	async onClose() {
+		// Cleanup React root when the view is closed
+		if (this.plugin.chatPanelRoot) {
+			this.plugin.chatPanelRoot.unmount();
+			this.plugin.chatPanelRoot = null;
 		}
 	}
 }
