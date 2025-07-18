@@ -62,40 +62,7 @@ const Dropdown: React.FC<DropdownProps> = ({
     }
   }, [isOpen, onSelectedIndexChange]);
 
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (disabled) return;
 
-    switch (e.key) {
-      case 'ArrowDown': {
-        e.preventDefault();
-        const nextIndex = selectedIndex < filteredItems.length - 1 ? selectedIndex + 1 : 0;
-        onSelectedIndexChange?.(nextIndex);
-        break;
-      }
-      case 'ArrowUp': {
-        e.preventDefault();
-        const prevIndex = selectedIndex > 0 ? selectedIndex - 1 : filteredItems.length - 1;
-        onSelectedIndexChange?.(prevIndex);
-        break;
-      }
-      case 'Enter':
-        e.preventDefault();
-        if (isOpen && selectedIndex >= 0 && selectedIndex < filteredItems.length) {
-          handleSelect(filteredItems[selectedIndex]);
-        } else if (!isOpen) {
-          setIsOpen(true);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setIsOpen(false);
-        break;
-      case 'Tab':
-        setIsOpen(false);
-        break;
-    }
-  }, [disabled, filteredItems, selectedIndex, isOpen, onSelectedIndexChange]);
 
   // Handle item selection
   const handleSelect = useCallback((item: DropdownItem) => {
@@ -115,7 +82,7 @@ const Dropdown: React.FC<DropdownProps> = ({
     onOpenChange?.(newIsOpen);
   }, [disabled, isOpen, onOpenChange]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside and handle global keyboard events
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -124,20 +91,53 @@ const Dropdown: React.FC<DropdownProps> = ({
       }
     };
 
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (!isOpen || disabled) return;
+
+      switch (event.key) {
+        case 'ArrowDown': {
+          event.preventDefault();
+          const nextIndex = selectedIndex < filteredItems.length - 1 ? selectedIndex + 1 : 0;
+          onSelectedIndexChange?.(nextIndex);
+          break;
+        }
+        case 'ArrowUp': {
+          event.preventDefault();
+          const prevIndex = selectedIndex > 0 ? selectedIndex - 1 : filteredItems.length - 1;
+          onSelectedIndexChange?.(prevIndex);
+          break;
+        }
+        case 'Enter':
+          event.preventDefault();
+          if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
+            handleSelect(filteredItems[selectedIndex]);
+          }
+          break;
+        case 'Escape':
+          event.preventDefault();
+          setIsOpen(false);
+          onOpenChange?.(false);
+          break;
+        case 'Tab':
+          setIsOpen(false);
+          onOpenChange?.(false);
+          break;
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleGlobalKeyDown);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleGlobalKeyDown);
+      };
     }
-  }, [isOpen, onOpenChange]);
+  }, [isOpen, onOpenChange, disabled, selectedIndex, filteredItems, onSelectedIndexChange]);
 
-  // Focus dropdown when it opens and scroll highlighted item into view
+  // Scroll highlighted item into view when dropdown is open
   useEffect(() => {
-    if (isOpen && dropdownRef.current) {
-      // Focus the dropdown container for keyboard navigation
-      dropdownRef.current.focus();
-    }
-    
-    if (selectedIndex >= 0 && listRef.current) {
+    if (isOpen && selectedIndex >= 0 && listRef.current) {
       const highlightedElement = listRef.current.children[selectedIndex] as HTMLElement;
       if (highlightedElement) {
         highlightedElement.scrollIntoView({
@@ -176,8 +176,6 @@ const Dropdown: React.FC<DropdownProps> = ({
       className={`tangent-dropdown ${className} ${disabled ? 'disabled' : ''} ${isOpen ? 'open' : ''}`}
       style={style}
       aria-label={ariaLabel}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
     >
       {/* Trigger button - only show if not autoOpen */}
       {!autoOpen && (
