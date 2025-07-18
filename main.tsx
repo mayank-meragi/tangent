@@ -6,6 +6,7 @@ import { streamAIResponse } from './ai';
 import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
 import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
 import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
+import { TemplateService } from './templateService';
 
 // Remember to rename these classes and interfaces!
 
@@ -40,6 +41,7 @@ export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
 	public mcpServerManager!: MCPServerManager;
 	public unifiedToolManager!: UnifiedToolManager;
+	public templateService!: TemplateService;
 	public chatPanelRoot: Root | null = null;
 	private chatPanelLeaf: WorkspaceLeaf | null = null;
 
@@ -56,6 +58,10 @@ export default class MyPlugin extends Plugin {
 
 		// Initialize MCP managers
 		this.initializeMCP();
+
+		// Initialize template service
+		this.templateService = new TemplateService(this.app);
+		await this.templateService.initialize();
 
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('message-circle', 'Tangent Chat', (evt: MouseEvent) => {
@@ -106,6 +112,24 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 
+		// Add debug command for template service
+		this.addCommand({
+			id: 'debug-template-service',
+			name: 'Debug Template Service',
+			callback: () => {
+				this.debugTemplateService();
+			}
+		});
+
+		// Add debug command for dropdown UI
+		this.addCommand({
+			id: 'debug-dropdown-ui',
+			name: 'Debug Dropdown UI',
+			callback: () => {
+				this.debugDropdownUI();
+			}
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new GeminiSettingTab(this.app, this));
 
@@ -120,6 +144,11 @@ export default class MyPlugin extends Plugin {
 	}
 
 	onunload() {
+		// Cleanup template service
+		if (this.templateService) {
+			this.templateService.cleanup();
+		}
+
 		// Cleanup MCP managers
 		if (this.mcpServerManager) {
 			this.mcpServerManager.cleanup();
@@ -249,6 +278,128 @@ export default class MyPlugin extends Plugin {
 		
 		console.log('\nDebug complete. Check console for details.');
 		new Notice('Tasks integration debug complete. Check console for details.');
+	}
+
+	async debugDropdownUI() {
+		console.log('🔍 DEBUGGING DROPDOWN UI');
+		console.log('=========================');
+		
+		try {
+			// Check if template service is initialized
+			if (!this.templateService) {
+				console.log('❌ Template service not initialized');
+				return;
+			}
+
+			// Get all templates
+			const templates = await this.templateService.getAllTemplates();
+			console.log(`✅ Found ${templates.length} templates`);
+
+			// Test filtering logic
+			const mockFilter = (query: string) => {
+				if (!query.trim()) {
+					return templates.slice(0, 5);
+				}
+
+				const filtered = templates.filter(template => 
+					template.title.toLowerCase().includes(query.toLowerCase()) ||
+					template.description?.toLowerCase().includes(query.toLowerCase()) ||
+					template.category?.toLowerCase().includes(query.toLowerCase())
+				);
+				
+				return filtered.slice(0, 5);
+			};
+
+			// Test different queries
+			console.log('\n📋 Testing search queries:');
+			const testQueries = ['', 'writing', 'analysis', 'technical'];
+			
+			testQueries.forEach(query => {
+				const results = mockFilter(query);
+				console.log(`"${query || '(empty)'}": ${results.length} results`);
+				results.forEach(template => {
+					console.log(`  - ${template.title} (${template.category})`);
+				});
+			});
+
+			console.log('\n✅ Dropdown UI test complete');
+			console.log('📋 Manual testing:');
+			console.log('1. Open chat panel');
+			console.log('2. Type "/" to trigger template dropdown');
+			console.log('3. Verify dropdown appears immediately (no search input)');
+			console.log('4. Verify dropdown opens upwards');
+			console.log('5. Verify max 5 items shown');
+			console.log('6. Use arrow keys to navigate through items');
+			console.log('7. Press Enter to select highlighted item');
+			console.log('8. Press Escape to close dropdown');
+			console.log('9. Test file dropdown with "@" - should also auto-open');
+			console.log('10. Check console for folder creation messages (no errors)');
+
+		} catch (error) {
+			console.error('❌ Error debugging dropdown UI:', error);
+		}
+	}
+
+	async debugTemplateService() {
+		console.log('🔍 DEBUGGING TEMPLATE SERVICE');
+		console.log('==============================');
+		
+		try {
+			// Check if template service is initialized
+			if (!this.templateService) {
+				console.log('❌ Template service not initialized');
+				new Notice('Template service not initialized');
+				return;
+			}
+			
+			console.log('✅ Template service is initialized');
+			
+			// Check bundled templates
+			console.log('\n📦 Checking bundled templates...');
+			const bundledTemplates = await this.templateService['loadBundledTemplates']();
+			if (bundledTemplates) {
+				console.log(`✅ Found ${Object.keys(bundledTemplates).length} bundled templates`);
+				Object.keys(bundledTemplates).forEach(path => {
+					console.log(`  - ${path}`);
+				});
+			} else {
+				console.log('❌ No bundled templates found');
+			}
+			
+			// Check all templates
+			console.log('\n📋 Checking all templates...');
+			const allTemplates = await this.templateService.getAllTemplates();
+			console.log(`✅ Found ${allTemplates.length} total templates`);
+			
+			allTemplates.forEach(template => {
+				console.log(`  - ${template.title} (${template.category}) - ${template.author}`);
+			});
+			
+			// Check template categories
+			console.log('\n📂 Checking template categories...');
+			const categories = await this.templateService.getTemplateCategories();
+			console.log(`✅ Found ${categories.length} categories`);
+			
+			categories.forEach(category => {
+				console.log(`  - ${category.name}: ${category.description}`);
+			});
+			
+			// Test search
+			console.log('\n🔍 Testing template search...');
+			const searchResults = await this.templateService.searchTemplates('writing');
+			console.log(`✅ Found ${searchResults.length} templates matching 'writing'`);
+			
+			searchResults.forEach(result => {
+				console.log(`  - ${result.template.title} (score: ${result.relevanceScore})`);
+			});
+			
+			console.log('\n✅ Template service debug complete');
+			new Notice('Template service debug complete. Check console for details.');
+			
+		} catch (error) {
+			console.error('❌ Template service debug failed:', error);
+			new Notice('Template service debug failed. Check console for error.');
+		}
 	}
 }
 

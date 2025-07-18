@@ -1,6 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import fs from "fs";
+import path from "path";
 
 const banner =
 `/*
@@ -10,6 +12,33 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === "production");
+
+// Bundle system templates into the plugin
+function bundleSystemTemplates() {
+  const templatesDir = path.join(process.cwd(), 'templates');
+  const bundledTemplates = {};
+  
+  if (fs.existsSync(templatesDir)) {
+    const templateFiles = fs.readdirSync(templatesDir)
+      .filter(file => file.endsWith('.md'))
+      .sort();
+    
+    for (const file of templateFiles) {
+      const filePath = path.join(templatesDir, file);
+      const content = fs.readFileSync(filePath, 'utf8');
+      const relativePath = path.relative(process.cwd(), filePath);
+      bundledTemplates[relativePath] = content;
+    }
+    
+    console.log(`📦 Bundled ${Object.keys(bundledTemplates).length} system templates`);
+  } else {
+    console.log('⚠️  No templates directory found, skipping template bundling');
+  }
+  
+  return bundledTemplates;
+}
+
+const systemTemplates = bundleSystemTemplates();
 
 const context = await esbuild.context({
 	banner: {
@@ -44,6 +73,8 @@ const context = await esbuild.context({
 	define: {
 		'global': 'globalThis',
 		'process.env.NODE_ENV': prod ? '"production"' : '"development"',
+		// Inject bundled templates into the build
+		'globalThis.__SYSTEM_TEMPLATES__': JSON.stringify(systemTemplates),
 	},
 });
 

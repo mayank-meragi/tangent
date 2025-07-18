@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { PendingToolCall, ToolConfirmationResult } from './tools';
+import { PendingToolCall } from './tools';
+import { UploadedFile } from './FileUploadService';
 
 export type ChatMessage =
-  | { id: string; role: 'user'; content: string; timestamp?: string }
+  | { id: string; role: 'user'; content: string; files?: UploadedFile[]; timestamp?: string }
   | { id: string; role: 'ai'; message: string; thought: string; streaming?: boolean; timestamp?: string }
   | { id: string; role: 'tool-call'; toolName: string; toolArgs: any }
   | { id: string; role: 'tool-result'; toolName: string; result: any }
@@ -60,6 +61,7 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
         id: msg.id || generateId(),
         role: 'user',
         content: msg.content,
+        files: msg.files,
         timestamp: msg.timestamp
       };
     } else if (msg.role === 'tool-call') {

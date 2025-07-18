@@ -116,6 +116,7 @@ jobs:
           release-files/main.js
           release-files/manifest.json
           release-files/versions.json
+          release-files/styles.css
         body: |
           ## Tangent Copilot Plugin Release
           
