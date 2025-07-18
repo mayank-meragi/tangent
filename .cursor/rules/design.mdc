@@ -18,4 +18,6 @@ alwaysApply: false
 General:
 - Understand the complete code base before suggesting anything.
 - Always ask user for follow up questions to help refine and understand the requirement
-- IMPORTANT: Always wait for user to confirm before moving to the next step, for example, after spec is created, as user to read and confirm before moving on to the next step of creating design doc.
+- IMPORTANT: Always wait for user to confirm before moving to the next step
+  - after spec is created, ask user to read and confirm before moving on to the next step of creating design doc
+  - after design doc is created, ask user to read and confirm before moving on to the next step of creating tasks doc

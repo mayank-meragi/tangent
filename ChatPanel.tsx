@@ -13,6 +13,7 @@ import LucidIcon from './src/components/LucidIcon';
 import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
 import UserMessage from './src/components/UserMessage';
+import { UploadedFile, fileUploadService } from './FileUploadService';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -198,6 +199,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [availableFiles, setAvailableFiles] = React.useState<{name: string, path: string}[]>([]);
   const [atMentionQuery, setAtMentionQuery] = React.useState('');
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFile[]>([]);
 
   const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
@@ -348,6 +351,62 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       }
       return prev.filter(f => f.path !== filePath);
     });
+  };
+
+  // File upload handlers
+  const handleFileUpload = async (files: File[]) => {
+    // Validate files
+    const validation = fileUploadService.validateFiles(files);
+    if (!validation.isValid) {
+      console.error('File validation failed:', validation.error);
+      return;
+    }
+
+    // Process each file
+    for (const file of files) {
+      try {
+        // Add file with uploading status
+        const uploadingFile: UploadedFile = {
+          id: `temp_${Date.now()}_${Math.random()}`,
+          name: file.name,
+          size: file.size,
+          type: file.name.split('.').pop()?.toLowerCase() || 'unknown',
+          mimeType: file.type || 'application/octet-stream',
+          status: 'uploading'
+        };
+        
+        setUploadedFiles(prev => [...prev, uploadingFile]);
+
+        // Encode file
+        const encodedFile = await fileUploadService.encodeFile(file);
+        
+        // Update file with encoded data
+        const readyFile: UploadedFile = {
+          ...uploadingFile,
+          ...encodedFile,
+          status: 'ready'
+        };
+        
+        setUploadedFiles(prev => 
+          prev.map(f => f.id === uploadingFile.id ? readyFile : f)
+        );
+      } catch (error) {
+        console.error('Error processing file:', error);
+        
+        // Update file with error status
+        setUploadedFiles(prev => 
+          prev.map(f => 
+            f.name === file.name && f.status === 'uploading' 
+              ? { ...f, status: 'error', error: 'Failed to process file' }
+              : f
+          )
+        );
+      }
+    }
+  };
+
+  const handleFileRemove = (fileId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
   };
 
 
@@ -720,18 +779,45 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         const fileContext = selectedFiles.map(file => `## ${file.name}\n\n${file.content}`).join('\n\n');
         aiMessage = `${fileContext}\n\n---\n\n${textToSend}`;
       }
+      
+      // Build message parts including uploaded files
+      const messageParts: any[] = [];
+      
+      // Add text content if present
+      if (aiMessage.trim()) {
+        messageParts.push({ text: aiMessage });
+      }
+      
+      // Add uploaded files as inlineData
+      const readyFiles = uploadedFiles.filter(f => f.status === 'ready');
+      for (const file of readyFiles) {
+        if (file.encodedData) {
+          messageParts.push({
+            inlineData: {
+              mimeType: file.mimeType,
+              data: file.encodedData
+            }
+          });
+        }
+      }
+      
       conversationHistory.push({
         role: 'user',
-        parts: [{ text: aiMessage }]
+        parts: messageParts
       });
+      
       // Add to chat UI (display version without file content)
       addMessage({
         id: Date.now().toString(36) + Math.random().toString(36).substr(2),
         role: 'user',
         content: textToSend,
+        files: uploadedFiles.filter(f => f.status === 'ready' && f.preview),
         timestamp
       });
       setInput(''); // Clear input immediately after sending
+      
+      // Clear uploaded files after sending
+      setUploadedFiles([]);
     }
 
     setIsStreaming(true);
@@ -802,6 +888,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setCurrentConversation(null);
     setInput('');
     setSelectedFiles([]);
+    setUploadedFiles([]);
     setEditingMessageId(null);
     setShowFileDropdown(false);
     setAtMentionQuery('');
@@ -898,6 +985,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               {isUser ? (
                 <UserMessage
                   content={msg.content}
+                  files={msg.files}
                   onEdit={() => handleEditMessage(msg.id, msg.content)}
                   showEdit={true}
                 />
@@ -936,6 +1024,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           thinkingEnabled={thinkingEnabled}
           setThinkingEnabled={setThinkingEnabled}
           setShowFileDropdown={setShowFileDropdown}
+          uploadedFiles={uploadedFiles}
+          onFileUpload={handleFileUpload}
+          onFileRemove={handleFileRemove}
         />
       </div>
         </>

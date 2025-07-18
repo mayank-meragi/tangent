@@ -12,6 +12,10 @@ export interface ConversationMessage {
   role: 'user' | 'model' | 'system';
   parts: Array<{
     text?: string;
+    inlineData?: {
+      mimeType: string;
+      data: string; // Base64 encoded
+    };
     functionCall?: {
       name: string;
       args: Record<string, any>;
@@ -83,7 +87,10 @@ export async function streamAIResponse({
       .map(part => part.text)
       .join(' ');
     
-    if (!userPrompt.trim()) {
+    // Check if there are any files in the message
+    const hasFiles = lastUserMessage.parts.some(part => part.inlineData);
+    
+    if (!userPrompt.trim() && !hasFiles) {
       if (onToken) onToken('[Empty user message]');
       return;
     }
@@ -141,7 +148,29 @@ export async function streamAIResponse({
     // Convert our conversation messages to Gemini format
     const geminiContents = messages.map(msg => ({
       role: msg.role === 'system' ? 'user' : msg.role, // Gemini treats system as user
-      parts: msg.parts
+      parts: msg.parts.map(part => {
+        // Handle file content for Gemini
+        if (part.inlineData) {
+          return {
+            inlineData: {
+              mimeType: part.inlineData.mimeType,
+              data: part.inlineData.data
+            }
+          };
+        }
+        // Handle text content
+        if (part.text) {
+          return { text: part.text };
+        }
+        // Handle function calls and responses
+        if (part.functionCall) {
+          return { functionCall: part.functionCall };
+        }
+        if (part.functionResponse) {
+          return { functionResponse: part.functionResponse };
+        }
+        return part;
+      })
     }));
     
     // Add memory context if available

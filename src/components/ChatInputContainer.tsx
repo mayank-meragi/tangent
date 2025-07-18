@@ -2,6 +2,9 @@ import React from 'react';
 import LucidIcon from './LucidIcon';
 import IconButton from './IconButton';
 import { MODEL_CONFIGS } from 'modelConfigs';
+import FileUploadButton from './FileUploadButton';
+import FilePreviewList from './FilePreviewList';
+import { UploadedFile } from '../../FileUploadService';
 
 
 type ChatInputContainerProps = {
@@ -24,6 +27,10 @@ type ChatInputContainerProps = {
   thinkingEnabled: boolean;
   setThinkingEnabled: (enabled: boolean) => void;
   setShowFileDropdown: React.Dispatch<React.SetStateAction<boolean>>;
+  // File upload props
+  uploadedFiles: UploadedFile[];
+  onFileUpload: (files: File[]) => void;
+  onFileRemove: (fileId: string) => void;
 };
 
 const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
@@ -46,6 +53,9 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   thinkingEnabled,
   setThinkingEnabled,
   setShowFileDropdown,
+  uploadedFiles = [],
+  onFileUpload = () => {},
+  onFileRemove = () => {},
 }) => (
   <div style={{
     border: '1px solid var(--background-modifier-border)',
@@ -95,6 +105,12 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         ))}
       </div>
     )}
+
+    {/* Uploaded Files Preview */}
+    <FilePreviewList
+      files={uploadedFiles}
+      onRemove={onFileRemove}
+    />
     <textarea
       ref={textareaRef}
       value={input}
@@ -276,6 +292,13 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
       </div>
       {/* Send and Cancel Buttons - Bottom Right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
+        {/* File Upload Button */}
+        <FileUploadButton
+          onFileSelect={onFileUpload}
+          disabled={isStreaming}
+          title="Upload files"
+        />
+        
         {editingMessageId && (
           <button
             onClick={handleCancelEdit}

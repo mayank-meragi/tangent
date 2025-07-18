@@ -2,9 +2,11 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import IconButton from './IconButton';
 import LucidIcon from './LucidIcon';
+import { UploadedFile } from '../../FileUploadService';
 
 interface UserMessageProps {
   content: string;
+  files?: UploadedFile[];
   onEdit?: () => void;
   showEdit?: boolean;
   style?: React.CSSProperties;
@@ -12,6 +14,7 @@ interface UserMessageProps {
 
 const UserMessage: React.FC<UserMessageProps> = ({
   content,
+  files = [],
   onEdit,
   showEdit = false,
   style = {},
@@ -35,6 +38,27 @@ const UserMessage: React.FC<UserMessageProps> = ({
             size={12}
             color="var(--text-muted)"
           />
+        </div>
+      )}
+      {/* Uploaded Files Preview */}
+      {files.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: 6 }}>
+          {files.map(file => file.preview ? (
+            <div key={file.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 100 }}>
+              <img
+                src={file.preview}
+                alt={file.name}
+                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--background-modifier-border)' }}
+              />
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, textAlign: 'center', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+            </div>
+          ) : (
+            <div key={file.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 100 }}>
+              <LucidIcon name="file-text" size={32} />
+              <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, textAlign: 'center', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+              <div style={{ fontSize: 9, color: 'var(--text-faint)' }}>{(file.size / 1024).toFixed(1)} KB</div>
+            </div>
+          ))}
         </div>
       )}
       <div style={{
