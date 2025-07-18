@@ -755,6 +755,41 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Add keyboard shortcuts for text selection and copying
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + C to copy selected text
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) {
+          // The browser will handle the copy automatically
+          // We just need to ensure our text is selectable
+          return;
+        }
+      }
+      
+      // Ctrl/Cmd + A to select all text in the current message
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.classList.contains('ai-message-content')) {
+          e.preventDefault();
+          const range = document.createRange();
+          range.selectNodeContents(activeElement);
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // MCP Server Manager props (get from plugin context)
   const plugin = (window as any).tangentPluginInstance; // You may need to set this in main.tsx for access
   const mcpServerManager = plugin?.mcpServerManager;
