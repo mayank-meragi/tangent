@@ -1,0 +1,8 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+- Always execute one task.
+- After finishing the task, wait for the user to confirm that the task is successfully done.
+- Mark the task as completed in the tasks files `[X]`

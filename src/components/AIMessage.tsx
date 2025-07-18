@@ -47,6 +47,7 @@ const AIMessage: React.FC<AIMessageProps> = ({
         flexDirection: 'column', 
         gap: '8px', 
         position: 'relative',
+        width: '100%', // Ensure full width
         ...style 
       }}
       className="ai-message-container"
@@ -58,9 +59,14 @@ const AIMessage: React.FC<AIMessageProps> = ({
             position: 'absolute',
             top: '4px',
             right: '4px',
-            opacity: 0,
+            opacity: 0, // Hidden by default, only show on hover
             transition: 'opacity 0.2s ease-in-out',
-            zIndex: 20,
+            zIndex: 100,
+            backgroundColor: 'var(--background-secondary)',
+            borderRadius: '6px',
+            padding: '2px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            border: '1px solid var(--background-modifier-border)',
           }}
           className="message-copy-button"
         >
@@ -75,11 +81,10 @@ const AIMessage: React.FC<AIMessageProps> = ({
             onClick={handleCopyMessage}
             style={{
               padding: '6px',
-              backgroundColor: 'var(--background-secondary)',
-              border: '1px solid var(--background-modifier-border)',
-              borderRadius: '6px',
+              backgroundColor: 'transparent',
+              border: 'none',
+              borderRadius: '4px',
               color: copiedMessage ? 'var(--color-green)' : 'var(--text-muted)',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
             }}
           />
         </div>

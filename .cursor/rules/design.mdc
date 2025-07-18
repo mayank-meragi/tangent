@@ -1,0 +1,21 @@
+---
+alwaysApply: false
+---
+- Whenever starting to work on a new feature, always follow the below mentioned steps.
+- Step 1: Create a folder for the feature in the docs folder
+- Step 2: Create a file for spec. 
+  - Understand requirement from user and create a PRD
+  - Add user stories and acceptance criteria for each feature
+- Step 3: Create a file for design.
+  - In this design doc, in detail mention how everything will be implemented
+  - It should cover all the User Stories and Acceptance criteria mentioned in the spec file
+  - Always use web search to help and facilitate your design decisions
+- Step 4: Create a file for Tasks.
+  - In the tasks file, create tasks for everything mentioned in the design doc.
+  - Each task should be a `[ ]` checkbox.
+  - It should have detailed sub tasks with its own checkbox, breaking down the main task.
+
+General:
+- Understand the complete code base before suggesting anything.
+- Always ask user for follow up questions to help refine and understand the requirement
+- IMPORTANT: Always wait for user to confirm before moving to the next step, for example, after spec is created, as user to read and confirm before moving on to the next step of creating design doc.
