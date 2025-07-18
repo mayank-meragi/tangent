@@ -6,6 +6,7 @@ import { ConversationMessage } from './ai';
 import { systemPrompt } from './systemPrompt';
 import { PendingToolCall, ToolConfirmationResult } from './tools';
 import { ConversationService, Conversation } from './conversationService';
+import { TemplateService } from './templateService';
 import HistoryTab from './HistoryTab';
 import IconButton from './src/components/IconButton';
 import ChatMessageContainer from './src/components/ChatMessageContainer';
@@ -14,6 +15,8 @@ import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
 import UserMessage from './src/components/UserMessage';
 import { UploadedFile, fileUploadService } from './FileUploadService';
+import { DropdownItem, ConversationTemplate } from './tools/types';
+import { VariableInputModal } from './src/components/VariableInputModal';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -201,6 +204,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
   // File upload state
   const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFile[]>([]);
+  
+  // Template-related state
+  const [templateService] = useState(() => new TemplateService(app));
+  const [showTemplateDropdown, setShowTemplateDropdown] = React.useState(false);
+  const [allTemplateItems, setAllTemplateItems] = React.useState<DropdownItem[]>([]);
+  const [templateItems, setTemplateItems] = React.useState<DropdownItem[]>([]);
+  const [selectedTemplateIndex, setSelectedTemplateIndex] = React.useState(0);
+  const [slashTemplateQuery, setSlashTemplateQuery] = React.useState('');
+  const [isLoadingTemplates, setIsLoadingTemplates] = React.useState(false);
+  const [templateError, setTemplateError] = React.useState<string | null>(null);
+  const [showVariableModal, setShowVariableModal] = React.useState(false);
+  const [selectedTemplate, setSelectedTemplate] = React.useState<ConversationTemplate | null>(null);
 
   const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
@@ -247,7 +262,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const autoResizeTextarea = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const maxHeight = 200; // Match the maxHeight in ChatInputContainer
+      
+      if (scrollHeight <= maxHeight) {
+        // Content fits within max height, auto-resize
+        textareaRef.current.style.height = scrollHeight + 'px';
+      } else {
+        // Content exceeds max height, set to max height and enable scrolling
+        textareaRef.current.style.height = maxHeight + 'px';
+      }
     }
   };
 
@@ -255,6 +279,187 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   useEffect(() => {
     currentMessagesRef.current = messages;
   }, [messages]);
+
+  // Initialize template service
+  useEffect(() => {
+    const initializeTemplates = async () => {
+      try {
+        setIsLoadingTemplates(true);
+        setTemplateError(null);
+        await templateService.initialize();
+        console.log('Template service initialized in ChatPanel');
+        // Load all templates after initialization
+        await getAllTemplates();
+      } catch (error) {
+        console.error('Failed to initialize template service:', error);
+        setTemplateError('Failed to initialize template service');
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+    
+    initializeTemplates();
+  }, [templateService]);
+
+  // Function to get all templates
+  const getAllTemplates = async () => {
+    try {
+      setIsLoadingTemplates(true);
+      setTemplateError(null);
+      
+      console.log('Fetching templates from service...');
+      const templates = await templateService.getAllTemplates();
+      console.log('Raw templates from service:', templates);
+      
+      const templateDropdownItems: DropdownItem[] = templates.map(template => {
+        console.log('Processing template:', {
+          id: template.id,
+          title: template.title,
+          contentLength: template.content?.length,
+          variablesCount: template.variables?.length
+        });
+        
+        return {
+          id: template.id,
+          title: template.title,
+          description: template.description,
+          category: template.category,
+          icon: 'message-square',
+          metadata: { template }
+        };
+      });
+      
+      console.log('Created dropdown items:', templateDropdownItems);
+      setAllTemplateItems(templateDropdownItems);
+      setTemplateItems(templateDropdownItems);
+    } catch (error) {
+      console.error('Error getting templates:', error);
+      setTemplateError('Failed to load templates');
+      setAllTemplateItems([]);
+      setTemplateItems([]);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
+  // Function to filter templates based on search query
+  const filterTemplates = (query: string) => {
+    if (!query.trim()) {
+      setTemplateItems(allTemplateItems);
+      return;
+    }
+
+    const filteredTemplates = allTemplateItems.filter(item => 
+      item.title.toLowerCase().includes(query.toLowerCase()) ||
+      item.description?.toLowerCase().includes(query.toLowerCase()) ||
+      item.category?.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    setTemplateItems(filteredTemplates);
+  };
+
+
+
+  // Function to handle template selection
+  const handleTemplateSelect = async (template: ConversationTemplate) => {
+    try {
+      setTemplateError(null);
+      
+      // Validate template structure
+      if (!template || typeof template !== 'object') {
+        throw new Error('Invalid template object');
+      }
+      
+      if (!template.content || typeof template.content !== 'string') {
+        throw new Error('Template content is missing or invalid');
+      }
+      
+      console.log('Processing template:', {
+        id: template.id,
+        title: template.title,
+        contentLength: template.content.length,
+        variables: template.variables
+      });
+      
+      // Check if template has variables that need user input
+      if (template.variables && template.variables.length > 0) {
+        // Show variable input modal
+        setSelectedTemplate(template);
+        setShowVariableModal(true);
+        setShowTemplateDropdown(false);
+        setSlashTemplateQuery('');
+        setSelectedTemplateIndex(0);
+      } else {
+        // No variables, insert template directly
+        insertTemplateWithVariables(template, {});
+      }
+    } catch (error) {
+      console.error('Error handling template selection:', error);
+      console.error('Template object:', template);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+        templateId: template?.id,
+        templateTitle: template?.title
+      });
+      setTemplateError('Failed to insert template. Please try again.');
+    }
+  };
+
+  // Function to insert template with variable values
+  const insertTemplateWithVariables = (template: ConversationTemplate, variables: Record<string, any>) => {
+    try {
+      // Replace the /query with the processed template content
+      const slashIndex = input.lastIndexOf('/');
+      const beforeSlash = input.slice(0, slashIndex);
+      const afterQuery = input.slice(slashIndex + 1 + slashTemplateQuery.length);
+      
+      // Process template content with provided variable values
+      let processedContent = template.content;
+      if (template.variables) {
+        template.variables.forEach(variable => {
+          const placeholder = `{{${variable.name}}}`;
+          const value = variables[variable.name] !== undefined ? String(variables[variable.name]) : '';
+          const replacement = value || `[${variable.description || variable.name}]`;
+          processedContent = processedContent.replace(new RegExp(placeholder, 'g'), replacement);
+        });
+      }
+      
+      const newInput = beforeSlash + processedContent + afterQuery;
+      setInput(newInput);
+      
+      // Focus the textarea after template insertion
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          // Position cursor after the inserted template
+          const cursorPosition = beforeSlash.length + processedContent.length;
+          textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      }, 0);
+      
+      // Track template usage (optional)
+      console.log(`Template used: ${template.title} (${template.id})`);
+    } catch (error) {
+      console.error('Error inserting template with variables:', error);
+      setTemplateError('Failed to insert template. Please try again.');
+    }
+  };
+
+  // Function to handle variable input confirmation
+  const handleVariableInputConfirm = (variables: Record<string, any>) => {
+    if (selectedTemplate) {
+      insertTemplateWithVariables(selectedTemplate, variables);
+    }
+    setShowVariableModal(false);
+    setSelectedTemplate(null);
+  };
+
+  // Function to handle variable input cancellation
+  const handleVariableInputCancel = () => {
+    setShowVariableModal(false);
+    setSelectedTemplate(null);
+  };
 
 
 
@@ -484,7 +689,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       return;
     }
     
-    // Check for @ mention
+    // Check for @ mention (files)
     const atIndex = value.lastIndexOf('@');
     if (atIndex !== -1) {
       const query = value.slice(atIndex + 1);
@@ -499,12 +704,37 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         // Fetch fresh file list every time @ dropdown is shown
         getAllVaultFiles();
         setShowFileDropdown(true);
+        setShowTemplateDropdown(false); // Hide template dropdown
         setSelectedFileIndex(0); // Reset selection when dropdown opens
       } else {
         setShowFileDropdown(false);
       }
     } else {
       setShowFileDropdown(false);
+    }
+    
+    // Check for / mention (templates)
+    const slashIndex = value.lastIndexOf('/');
+    if (slashIndex !== -1) {
+      const query = value.slice(slashIndex + 1);
+      const beforeSlash = value.slice(0, slashIndex);
+      
+      // Only show dropdown if / is at start or after space AND query doesn't include space
+      const isComplete = query.includes(' ');
+      const shouldShow = (slashIndex === 0 || beforeSlash.endsWith(' ')) && !isComplete;
+      
+      if (shouldShow) {
+        setSlashTemplateQuery(query);
+        // Filter templates based on query
+        filterTemplates(query);
+        setShowTemplateDropdown(true);
+        setShowFileDropdown(false); // Hide file dropdown
+        setSelectedTemplateIndex(0); // Reset selection when dropdown opens
+      } else {
+        setShowTemplateDropdown(false);
+      }
+    } else {
+      setShowTemplateDropdown(false);
     }
   };
 
@@ -891,8 +1121,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setUploadedFiles([]);
     setEditingMessageId(null);
     setShowFileDropdown(false);
+    setShowTemplateDropdown(false);
     setAtMentionQuery('');
+    setSlashTemplateQuery('');
     setSelectedFileIndex(0);
+    setSelectedTemplateIndex(0);
     setActiveView('chat');
   };
 
@@ -1027,10 +1260,28 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           uploadedFiles={uploadedFiles}
           onFileUpload={handleFileUpload}
           onFileRemove={handleFileRemove}
+          // Template props
+          showTemplateDropdown={showTemplateDropdown}
+          setShowTemplateDropdown={setShowTemplateDropdown}
+          templateItems={templateItems}
+          selectedTemplateIndex={selectedTemplateIndex}
+          setSelectedTemplateIndex={setSelectedTemplateIndex}
+          handleTemplateSelect={handleTemplateSelect}
+          isLoadingTemplates={isLoadingTemplates}
+          templateError={templateError}
         />
       </div>
         </>
       )}
+      
+      {/* Variable Input Modal */}
+      <VariableInputModal
+        isVisible={showVariableModal}
+        template={selectedTemplate}
+        onConfirm={handleVariableInputConfirm}
+        onCancel={handleVariableInputCancel}
+      />
+      
       {activeView === 'history' && (
         <HistoryTab
           conversationService={conversationService}

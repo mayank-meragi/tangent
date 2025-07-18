@@ -38,4 +38,95 @@ export interface PendingToolCall {
 export interface ToolConfirmationResult {
   approved: boolean;
   toolCallId: string;
+}
+
+// Template data models for conversation starters
+export interface ConversationTemplate {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  description: string;
+  tags: string[];
+  created: string;
+  updated: string;
+  favorite?: boolean;
+  author: string; // "system" for built-in, "user" for custom
+  version?: string;
+  aliases?: string[];
+  variables?: TemplateVariable[];
+  filePath?: string; // Path to the markdown file for user templates
+}
+
+export interface TemplateVariable {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'select';
+  default?: any;
+  description?: string;
+  options?: string[]; // For select type
+  required?: boolean;
+}
+
+export interface TemplateCategory {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  isCustom: boolean;
+}
+
+export interface TemplateSearchResult {
+  template: ConversationTemplate;
+  relevanceScore: number;
+  matchedFields: string[];
+}
+
+export interface TemplateValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+// Generic dropdown interfaces for both file and template selection
+export interface DropdownItem {
+  id: string;
+  title: string;
+  description?: string;
+  category?: string;
+  icon?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface DropdownItemMetadata {
+  file?: any; // TFile for file items
+  template?: ConversationTemplate; // Template for template items
+}
+
+// Type validation utilities
+export interface TypeValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+// Template creation/update payloads
+export interface CreateTemplatePayload {
+  title: string;
+  content: string;
+  category: string;
+  description: string;
+  tags?: string[];
+  variables?: TemplateVariable[];
+  favorite?: boolean;
+}
+
+export interface UpdateTemplatePayload {
+  title?: string;
+  content?: string;
+  category?: string;
+  description?: string;
+  tags?: string[];
+  variables?: TemplateVariable[];
+  favorite?: boolean;
 } 
