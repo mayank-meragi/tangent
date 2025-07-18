@@ -76,6 +76,7 @@ If your plugin does not need CSS, delete this file.
 	-moz-user-select: text;
 	-ms-user-select: text;
 	position: relative;
+	width: 100%;
 }
 
 .ai-message-container:hover .message-copy-button {
@@ -108,6 +109,7 @@ If your plugin does not need CSS, delete this file.
 	-moz-user-select: text;
 	-ms-user-select: text;
 	cursor: text;
+	width: 100%;
 }
 
 .ai-message-content * {

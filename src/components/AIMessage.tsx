@@ -47,6 +47,7 @@ const AIMessage: React.FC<AIMessageProps> = ({
         flexDirection: 'column', 
         gap: '8px', 
         position: 'relative',
+        width: '100%', // Ensure full width
         ...style 
       }}
       className="ai-message-container"

@@ -21,7 +21,7 @@ const ChatMessageContainer: React.FC<ChatMessageContainerProps> = ({
         borderRadius: isUser ? '8px' : '0',
         alignSelf: isUser ? 'flex-end' : 'flex-start',
         maxWidth: '100%',
-        width: isUser ? '100%' : undefined,
+        width: '100%', // Always take full width for both user and AI messages
         border: isUser ? '1px solid var(--background-modifier-border)' : 'none',
         position: 'relative',
         userSelect: 'text',
