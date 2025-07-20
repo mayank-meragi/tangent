@@ -215,14 +215,17 @@ export async function streamAIResponse({
     
     // Collect the full response from the stream
     let fullResponse: any = null;
+    let hasStreamedContent = false; // Track if we've streamed any content
     
     for await (const chunk of response) {
       fullResponse = chunk; // Always update to the latest chunk
 
       console.log('[AI DEBUG] Streaming response:', chunk);
       // Collect text content from streaming chunks
-      if (chunk.candidates && chunk.candidates[0]?.content?.parts) {
+      // Skip streaming if there are function calls, as tool execution will provide the final response
+      if (chunk.candidates && chunk.candidates[0]?.content?.parts && !chunk.functionCalls) {
         onToken(chunk);
+        hasStreamedContent = true; // Mark that we've streamed content
       }
     }
     
@@ -525,7 +528,8 @@ export async function streamAIResponse({
       if (hasToolCalls && onToolsComplete) {
         onToolsComplete('Tools execution completed');
       }
-    } else if (fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
+    } else if (!hasStreamedContent && fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
+      // Only process final response if we haven't streamed content already
       // Extract only non-thinking parts for the regular response
       const responseParts = fullResponse.candidates[0].content.parts
         .filter((part: any) => (part as any).thought !== true && part.text)
@@ -533,12 +537,11 @@ export async function streamAIResponse({
         .join('');
       
       if (responseParts) {
-        
         onToken(responseParts);
       }
-    } else if (fullResponse?.text) {
+    } else if (!hasStreamedContent && fullResponse?.text) {
+      // Only process fallback text if we haven't streamed content already
       // Fallback: Direct text response
-      
       onToken(fullResponse.text);
     }
     
