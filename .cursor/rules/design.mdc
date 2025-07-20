@@ -14,6 +14,13 @@ alwaysApply: false
   - In the tasks file, create tasks for everything mentioned in the design doc.
   - Each task should be a `[ ]` checkbox.
   - It should have detailed sub tasks with its own checkbox, breaking down the main task.
+  - Always create the tasks in 3 phases.
+    - Phase 1: POC
+      - This phase will have all the tasks that will allow the feature to quickly take rough shape that'll allow users to see if the feature is working correctly and their concept is correct.
+    - Phase 2: MVP
+      - This phase includes all the quality of life tasks that makes the feature easier and better to use
+    - Phase 3: Production
+      - This phase will have all the tasks that make the feature production level like security, efficiency, speed etc
 
 General:
 - Understand the complete code base before suggesting anything.
