@@ -212,22 +212,11 @@ If your plugin does not need CSS, delete this file.
 /* Enhanced text selection feedback */
 .ai-message-content:focus {
 	outline: none;
-	background: var(--background-secondary);
-	border-radius: 4px;
-	padding: 4px;
-	margin: -4px;
 }
 
 /* Double-click to select all text in a message */
 .ai-message-content {
-	transition: background-color 0.2s ease-in-out;
-}
-
-.ai-message-content:hover {
-	background: var(--background-secondary);
-	border-radius: 4px;
-	padding: 4px;
-	margin: -4px;
+	transition: none;
 }
 
 /* Ensure ReactMarkdown components are selectable */

@@ -44,6 +44,7 @@ export async function streamAIResponse({
   thinkingBudget = 0,
   unifiedToolManager,
   maxNestedCalls = 3, // Prevent infinite recursion
+  webSearchEnabled = false, // New parameter for web search
 }: {
   apiKey: string;
   modelId: string;
@@ -58,6 +59,7 @@ export async function streamAIResponse({
   thinkingBudget?: number;
   unifiedToolManager: any;
   maxNestedCalls?: number;
+  webSearchEnabled?: boolean; // New parameter type
 }) {
   if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
     if (onToken) onToken('[Gemini API key not set]');
@@ -119,15 +121,26 @@ export async function streamAIResponse({
       console.log(`[AI DEBUG] Registered tool: ${t.name} (id: ${t.id}, type: ${t.type})`);
     }
 
-    // Build config with thinking configuration
-    const config: GenerateContentConfig = {
-      tools: [{
-        functionDeclarations: toolFunctionDeclarations
-      }]
-    };
+    // Build config with either web search OR function tools, not both (mutual exclusion)
+    let config: GenerateContentConfig;
 
-    // Debug log: print tool names sent to LLM
-    console.log('Tools sent to LLM:', toolFunctionDeclarations.map((t: any) => t.name));
+    if (webSearchEnabled) {
+      // Web search mode: only send Google Search tool
+      config = {
+        tools: [{
+          googleSearch: {}
+        }]
+      };
+      console.log('[AI DEBUG] Web search enabled - using Google Search tool only');
+    } else {
+      // Function calling mode: send all other tools
+      config = {
+        tools: [{
+          functionDeclarations: toolFunctionDeclarations
+        }]
+      };
+      console.log('Tools sent to LLM:', toolFunctionDeclarations.map((t: any) => t.name));
+    }
 
     // Add thinking configuration if budget > 0
     if (thinkingBudget > 0) {
@@ -202,18 +215,46 @@ export async function streamAIResponse({
     
     // Collect the full response from the stream
     let fullResponse: any = null;
+    let hasStreamedContent = false; // Track if we've streamed any content
     
     for await (const chunk of response) {
       fullResponse = chunk; // Always update to the latest chunk
 
       console.log('[AI DEBUG] Streaming response:', chunk);
       // Collect text content from streaming chunks
-      if (chunk.candidates && chunk.candidates[0]?.content?.parts) {
+      // Skip streaming if there are function calls, as tool execution will provide the final response
+      if (chunk.candidates && chunk.candidates[0]?.content?.parts && !chunk.functionCalls) {
         onToken(chunk);
+        hasStreamedContent = true; // Mark that we've streamed content
       }
     }
     
     console.log('[AI DEBUG] Full response:', fullResponse);
+
+    // Process grounding metadata if web search was used
+    if (webSearchEnabled && fullResponse?.candidates?.[0]?.groundingMetadata) {
+      const metadata = fullResponse.candidates[0].groundingMetadata;
+      console.log('[AI DEBUG] Grounding metadata found:', metadata);
+      
+      if (metadata.webSearchQueries && metadata.webSearchQueries.length > 0) {
+        // Add search context to response
+        if (onToken) {
+          onToken('\n\n**🌐 Sources from web search:**\n');
+          metadata.webSearchQueries.forEach((query: any, index: number) => {
+            onToken(`**Query ${index + 1}:** ${query.searchQuery}\n`);
+            if (query.searchResults && query.searchResults.length > 0) {
+              onToken(`**Results:** ${query.searchResults.length} sources found\n`);
+              query.searchResults.slice(0, 3).forEach((result: any, resultIndex: number) => {
+                onToken(`- ${resultIndex + 1}. [${result.title}](${result.url})\n`);
+              });
+            }
+            onToken('\n');
+          });
+        }
+      } else {
+        console.log('[AI DEBUG] No web search queries found in grounding metadata');
+      }
+    }
 
     // Debug log: print all tool calls decided by LLM
     if (fullResponse?.functionCalls) {
@@ -487,7 +528,8 @@ export async function streamAIResponse({
       if (hasToolCalls && onToolsComplete) {
         onToolsComplete('Tools execution completed');
       }
-    } else if (fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
+    } else if (!hasStreamedContent && fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
+      // Only process final response if we haven't streamed content already
       // Extract only non-thinking parts for the regular response
       const responseParts = fullResponse.candidates[0].content.parts
         .filter((part: any) => (part as any).thought !== true && part.text)
@@ -495,12 +537,11 @@ export async function streamAIResponse({
         .join('');
       
       if (responseParts) {
-        
         onToken(responseParts);
       }
-    } else if (fullResponse?.text) {
+    } else if (!hasStreamedContent && fullResponse?.text) {
+      // Only process fallback text if we haven't streamed content already
       // Fallback: Direct text response
-      
       onToken(fullResponse.text);
     }
     

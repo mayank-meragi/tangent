@@ -42,6 +42,9 @@ type ChatInputContainerProps = {
   handleTemplateSelect: (template: ConversationTemplate) => void;
   isLoadingTemplates?: boolean;
   templateError?: string | null;
+  // Web search props
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: (enabled: boolean) => void;
 };
 
 const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
@@ -76,6 +79,9 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   handleTemplateSelect,
   isLoadingTemplates = false,
   templateError = null,
+  // Web search props
+  webSearchEnabled,
+  setWebSearchEnabled,
 }) => {
   // Convert files to dropdown items for the generic dropdown
   const fileDropdownItems: DropdownItem[] = filteredFiles.map(file => ({
@@ -305,8 +311,8 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
               items={templateDropdownItems}
               onValueChange={handleTemplateDropdownSelect}
               placeholder="Select a template..."
-              maxHeight={200}
-              maxItems={5}
+              maxHeight={300}
+              maxItems={templateDropdownItems.length > 5 ? 10 : 5}
               openUpwards={true}
               autoOpen={true}
               selectedIndex={selectedTemplateIndex}
@@ -329,8 +335,8 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         alignItems: 'center',
         pointerEvents: 'none' // Allow clicks to pass through to children
       }}>
-        {/* Model Selection and Thinking Budget - Bottom Left */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', pointerEvents: 'auto' }}>
+        {/* Model Selection - Bottom Left */}
+        <div style={{ display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>
           <select
             value={selectedModel.id}
             onChange={e => {
@@ -366,42 +372,46 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Toggle Controls - Center */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
           {/* Thinking Toggle Control */}
           {selectedModel.supportsThinking && (
-            <button
+            <IconButton
+              icon={<LucidIcon name="brain" size={14} />}
+              ariaLabel={thinkingEnabled ? "Disable thinking" : "Enable thinking"}
               onClick={() => setThinkingEnabled(!thinkingEnabled)}
               disabled={isStreaming}
-              aria-label={thinkingEnabled ? "Disable thinking" : "Enable thinking"}
+              title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '12px',
-                backgroundColor: 'transparent',
+                backgroundColor: thinkingEnabled ? 'var(--background-modifier-hover)' : 'transparent',
                 color: thinkingEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '2px 4px',
-                borderRadius: '4px',
-                transition: 'color 0.2s ease',
+                border: thinkingEnabled ? '1px solid var(--background-modifier-border)' : '1px solid transparent',
+                transition: 'all 0.2s ease',
                 opacity: isStreaming ? 0.6 : 1
               }}
-              onMouseEnter={e => {
-                if (!isStreaming) {
-                  e.currentTarget.style.backgroundColor = 'var(--background-modifier-hover)';
-                }
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
-            >
-              <LucidIcon name="brain" size={10} />
-              <span>{thinkingEnabled ? "Thinking" : "No thinking"}</span>
-            </button>
+            />
           )}
+          
+          {/* Web Search Toggle Control */}
+          <IconButton
+            icon={<LucidIcon name="search" size={14} />}
+            ariaLabel={webSearchEnabled ? "Disable web search" : "Enable web search"}
+            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+            disabled={isStreaming}
+            title={webSearchEnabled ? "Web search enabled" : "Web search disabled"}
+            style={{
+              backgroundColor: webSearchEnabled ? 'var(--background-modifier-hover)' : 'transparent',
+              color: webSearchEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
+              border: webSearchEnabled ? '1px solid var(--background-modifier-border)' : '1px solid transparent',
+              transition: 'all 0.2s ease',
+              opacity: isStreaming ? 0.6 : 1
+            }}
+          />
         </div>
-        {/* Send and Cancel Buttons - Bottom Right */}
+
+        {/* Action Buttons - Bottom Right */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
           {/* File Upload Button */}
           <FileUploadButton

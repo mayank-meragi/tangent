@@ -20,7 +20,7 @@ import { VariableInputModal } from './src/components/VariableInputModal';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean) => Promise<void>;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -79,6 +79,10 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
     </div>
   );
 };
+
+
+
+
 
 // Tool Confirmation Component
 const ToolConfirmationCard: React.FC<{
@@ -204,11 +208,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
   // File upload state
   const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFile[]>([]);
+  // Web search state
+  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
   
   // Template-related state
   const [templateService] = useState(() => new TemplateService(app));
   const [showTemplateDropdown, setShowTemplateDropdown] = React.useState(false);
-  const [allTemplateItems, setAllTemplateItems] = React.useState<DropdownItem[]>([]);
   const [templateItems, setTemplateItems] = React.useState<DropdownItem[]>([]);
   const [selectedTemplateIndex, setSelectedTemplateIndex] = React.useState(0);
   const [slashTemplateQuery, setSlashTemplateQuery] = React.useState('');
@@ -330,12 +335,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       });
       
       console.log('Created dropdown items:', templateDropdownItems);
-      setAllTemplateItems(templateDropdownItems);
-      setTemplateItems(templateDropdownItems);
+      setTemplateItems(templateDropdownItems.slice(0, 5)); // Limit to 5 for initial display
     } catch (error) {
       console.error('Error getting templates:', error);
       setTemplateError('Failed to load templates');
-      setAllTemplateItems([]);
       setTemplateItems([]);
     } finally {
       setIsLoadingTemplates(false);
@@ -343,19 +346,40 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   // Function to filter templates based on search query
-  const filterTemplates = (query: string) => {
-    if (!query.trim()) {
-      setTemplateItems(allTemplateItems);
-      return;
-    }
+  const filterTemplates = async (query: string) => {
+    try {
+      if (!query.trim()) {
+        // For empty query, show all templates (limited to 5 for dropdown)
+        const allTemplates = await templateService.getAllTemplates();
+        const allTemplateDropdownItems: DropdownItem[] = allTemplates.map(template => ({
+          id: template.id,
+          title: template.title,
+          description: template.description,
+          category: template.category,
+          icon: 'message-square',
+          metadata: { template }
+        }));
+        setTemplateItems(allTemplateDropdownItems.slice(0, 5));
+        return;
+      }
 
-    const filteredTemplates = allTemplateItems.filter(item => 
-      item.title.toLowerCase().includes(query.toLowerCase()) ||
-      item.description?.toLowerCase().includes(query.toLowerCase()) ||
-      item.category?.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    setTemplateItems(filteredTemplates);
+      // Use the template search engine for proper search across all templates
+      const searchResults = await templateService.searchTemplates(query);
+      const searchDropdownItems: DropdownItem[] = searchResults.map(result => ({
+        id: result.template.id,
+        title: result.template.title,
+        description: result.template.description,
+        category: result.template.category,
+        icon: 'message-square',
+        metadata: { template: result.template }
+      }));
+      
+      setTemplateItems(searchDropdownItems);
+    } catch (error) {
+      console.error('Error filtering templates:', error);
+      setTemplateError('Failed to search templates');
+      setTemplateItems([]);
+    }
   };
 
 
@@ -726,7 +750,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       if (shouldShow) {
         setSlashTemplateQuery(query);
         // Filter templates based on query
-        filterTemplates(query);
+        filterTemplates(query).catch(error => {
+          console.error('Error filtering templates:', error);
+        });
         setShowTemplateDropdown(true);
         setShowFileDropdown(false); // Hide file dropdown
         setSelectedTemplateIndex(0); // Reset selection when dropdown opens
@@ -784,6 +810,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
     if (isStreaming) return;
+    
+
     
     const currentMessages = currentMessagesRef.current;
     const conversationHistory = existingConversationHistory || [];
@@ -939,7 +967,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           }
         }
       },
-      handleToolConfirmation
+      handleToolConfirmation,
+      webSearchEnabled
     );
   };
 
@@ -1173,6 +1202,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             flexDirection: 'column',
             gap: '16px'
           }}>
+
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
             return (
@@ -1269,6 +1299,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           handleTemplateSelect={handleTemplateSelect}
           isLoadingTemplates={isLoadingTemplates}
           templateError={templateError}
+          // Web search props
+          webSearchEnabled={webSearchEnabled}
+          setWebSearchEnabled={setWebSearchEnabled}
         />
       </div>
         </>
