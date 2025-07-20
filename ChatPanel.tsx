@@ -20,7 +20,7 @@ import { VariableInputModal } from './src/components/VariableInputModal';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean) => Promise<void>;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -79,6 +79,30 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
     </div>
   );
 };
+
+// Search Status Indicator Component
+const SearchStatusIndicator: React.FC<{ isSearching: boolean }> = ({ isSearching }) => {
+  if (!isSearching) return null;
+  
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      padding: '4px 8px',
+      background: 'var(--background-secondary)',
+      borderRadius: '4px',
+      fontSize: '12px',
+      color: 'var(--text-muted)',
+      marginBottom: '8px'
+    }}>
+      <LucidIcon name="search" size={12} />
+      <span>Searching web...</span>
+    </div>
+  );
+};
+
+
 
 // Tool Confirmation Component
 const ToolConfirmationCard: React.FC<{
@@ -204,6 +228,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
   // File upload state
   const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFile[]>([]);
+  // Web search state
+  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
+  const [isSearching, setIsSearching] = React.useState(false);
   
   // Template-related state
   const [templateService] = useState(() => new TemplateService(app));
@@ -805,6 +832,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
     if (isStreaming) return;
     
+    // Set search status if web search is enabled
+    if (webSearchEnabled) {
+      setIsSearching(true);
+    }
+    
     const currentMessages = currentMessagesRef.current;
     const conversationHistory = existingConversationHistory || [];
     const processedCount = processedMessageCount || 0;
@@ -936,6 +968,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           streamingThinkingId = null;
           lastStreamingThought = '';
         }
+        // Clear search status
+        setIsSearching(false);
       },
       conversationHistory,
       getThinkingBudget(),
@@ -959,7 +993,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           }
         }
       },
-      handleToolConfirmation
+      handleToolConfirmation,
+      webSearchEnabled
     );
   };
 
@@ -1193,6 +1228,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             flexDirection: 'column',
             gap: '16px'
           }}>
+            {/* Search Status Indicator */}
+            <SearchStatusIndicator isSearching={isSearching} />
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
             return (
@@ -1289,6 +1326,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           handleTemplateSelect={handleTemplateSelect}
           isLoadingTemplates={isLoadingTemplates}
           templateError={templateError}
+          // Web search props
+          webSearchEnabled={webSearchEnabled}
+          setWebSearchEnabled={setWebSearchEnabled}
         />
       </div>
         </>

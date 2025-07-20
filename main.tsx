@@ -13,6 +13,7 @@ import { TemplateService } from './templateService';
 interface MyPluginSettings {
 	mySetting: string;
 	geminiApiKey?: string;
+	webSearchEnabled: boolean;
 	mcpEnabled: boolean;
 	mcpServers: MCPServerConfig[];
 	mcpGlobalEnv: Record<string, string>;
@@ -26,6 +27,7 @@ interface MyPluginSettings {
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default',
+	webSearchEnabled: false,
 	mcpEnabled: false,
 	mcpServers: [],
 	mcpGlobalEnv: {},
@@ -879,6 +881,18 @@ class GeminiSettingTab extends PluginSettingTab {
 				})
 			);
 
+		// Web Search Setting
+		new Setting(containerEl)
+			.setName('Enable Web Search')
+			.setDesc('Enable Gemini\'s built-in grounding with Google Search. When enabled, other tools will be disabled.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.webSearchEnabled)
+				.onChange(async (value) => {
+					this.plugin.settings.webSearchEnabled = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
 		// MCP Settings Section
 		containerEl.createEl('h2', { text: 'Model Context Protocol (MCP)' });
 
@@ -1000,23 +1014,25 @@ class ChatPanelView extends ItemView {
 			conversationHistory?: any[],
 			thinkingBudget?: number,
 			onThinking?: (thoughts: string) => void,
-			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>
+			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>,
+			webSearchEnabled?: boolean
 		) => {
-					await streamAIResponse({
-			apiKey: this.plugin.settings.geminiApiKey || '',
-			modelId,
-			messages: conversationHistory || [{ role: 'user', parts: [{ text: prompt }] }],
-			onToken,
-			onToolCall,
-			onToolResult,
-			onToolsComplete,
-			onThinking,
-			onToolConfirmationNeeded,
-			app: this.plugin.app,
-			thinkingBudget,
-			unifiedToolManager: this.plugin.unifiedToolManager,
-			maxNestedCalls: 3,
-		});
+			await streamAIResponse({
+				apiKey: this.plugin.settings.geminiApiKey || '',
+				modelId,
+				messages: conversationHistory || [{ role: 'user', parts: [{ text: prompt }] }],
+				onToken,
+				onToolCall,
+				onToolResult,
+				onToolsComplete,
+				onThinking,
+				onToolConfirmationNeeded,
+				app: this.plugin.app,
+				thinkingBudget,
+				unifiedToolManager: this.plugin.unifiedToolManager,
+				maxNestedCalls: 3,
+				webSearchEnabled: webSearchEnabled || false,
+			});
 		};
 
 		// Create React root and render chat panel
