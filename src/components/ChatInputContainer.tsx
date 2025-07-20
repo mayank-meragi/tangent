@@ -1,6 +1,7 @@
 import React from 'react';
 import LucidIcon from './LucidIcon';
 import IconButton from './IconButton';
+import ToggleButton from './ToggleButton';
 import { MODEL_CONFIGS } from 'modelConfigs';
 import FileUploadButton from './FileUploadButton';
 import FilePreviewList from './FilePreviewList';
@@ -378,36 +379,28 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
           {/* Thinking Toggle Control */}
           {selectedModel.supportsThinking && (
-            <IconButton
-              icon={<LucidIcon name="brain" size={14} />}
-              ariaLabel={thinkingEnabled ? "Disable thinking" : "Enable thinking"}
-              onClick={() => setThinkingEnabled(!thinkingEnabled)}
+            <ToggleButton
+              iconName="brain"
+              isEnabled={thinkingEnabled}
+              onToggle={() => setThinkingEnabled(!thinkingEnabled)}
               disabled={isStreaming}
-              title={thinkingEnabled ? "Thinking enabled" : "Thinking disabled"}
-              style={{
-                backgroundColor: thinkingEnabled ? 'var(--background-modifier-hover)' : 'transparent',
-                color: thinkingEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
-                border: thinkingEnabled ? '1px solid var(--background-modifier-border)' : '1px solid transparent',
-                transition: 'all 0.2s ease',
-                opacity: isStreaming ? 0.6 : 1
-              }}
+              enabledTitle="Thinking enabled"
+              disabledTitle="Thinking disabled"
+              enabledAriaLabel="Disable thinking"
+              disabledAriaLabel="Enable thinking"
             />
           )}
           
           {/* Web Search Toggle Control */}
-          <IconButton
-            icon={<LucidIcon name="search" size={14} />}
-            ariaLabel={webSearchEnabled ? "Disable web search" : "Enable web search"}
-            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+          <ToggleButton
+            iconName="search"
+            isEnabled={webSearchEnabled}
+            onToggle={() => setWebSearchEnabled(!webSearchEnabled)}
             disabled={isStreaming}
-            title={webSearchEnabled ? "Web search enabled" : "Web search disabled"}
-            style={{
-              backgroundColor: webSearchEnabled ? 'var(--background-modifier-hover)' : 'transparent',
-              color: webSearchEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
-              border: webSearchEnabled ? '1px solid var(--background-modifier-border)' : '1px solid transparent',
-              transition: 'all 0.2s ease',
-              opacity: isStreaming ? 0.6 : 1
-            }}
+            enabledTitle="Web search enabled"
+            disabledTitle="Web search disabled"
+            enabledAriaLabel="Disable web search"
+            disabledAriaLabel="Enable web search"
           />
         </div>
 
@@ -444,11 +437,11 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
             </button>
           )}
           <IconButton
-            icon={<LucidIcon name="send" size={18} />}
+            icon={isStreaming ? <LucidIcon name="loader-2" size={18} className="animate-spin" /> : <LucidIcon name="send" size={18} />}
             ariaLabel="Send"
             onClick={() => sendMessage()}
             disabled={isStreaming}
-            title="Send"
+            title={isStreaming ? "Sending..." : "Send"}
             color="var(--color-accent)"
           />
         </div>

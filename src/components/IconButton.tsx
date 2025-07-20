@@ -21,25 +21,30 @@ const IconButton: React.FC<IconButtonProps> = ({
   title,
   style = {},
 }) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
   return (
     <button
       onClick={onClick}
       aria-label={ariaLabel}
       disabled={disabled}
       title={title}
+      onMouseEnter={() => !disabled && setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
-        background: 'none',
+        background: isHovered && !disabled ? 'var(--background-modifier-hover)' : 'none',
         border: 'none',
         boxShadow: 'none',
         outline: 'none',
-        padding: 0,
+        padding: 5,
         margin: 0,
         color,
         cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
-        borderRadius: 0,
+        borderRadius: '8px',
         opacity: disabled ? 0.6 : 1,
+        transition: 'all 0.2s ease',
         ...style,
       }}
     >
