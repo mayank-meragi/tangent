@@ -331,7 +331,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
               <div className="tangent-spinner-background" />
             )}
             <IconButton
-              icon={isStreaming ? <LucidIcon name="x" size={18} /> : <LucidIcon name="send" size={18} />}
+              icon={isStreaming ? <LucidIcon name="circle-stop" size={14} /> : <LucidIcon name="arrow-up-from-dot" size={18} />}
               ariaLabel={isStreaming ? "Cancel" : "Send"}
               onClick={isStreaming ? onCancelStreaming : () => sendMessage()}
               disabled={false} // Allow clicking during streaming for cancellation
@@ -340,6 +340,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
               style={{
                 position: 'relative',
                 zIndex: 2,
+                borderRadius: '50%',
                 backgroundColor: isStreaming ? 'var(--background-primary)' : undefined,
                 border: isStreaming ? '1px solid var(--background-modifier-border)' : undefined
               }}
