@@ -50,23 +50,26 @@ const FilePreviewItem: React.FC<FilePreviewItemProps> = ({
                  ) : (
            <LucidIcon 
              name={fileIcon as any} 
-             size={32} 
+             size={24} 
              className="file-icon"
            />
          )}
       </div>
 
-      {/* File Name */}
-      <div
-        className="tangent-file-preview-name"
-        title={file.name}
-      >
-        {file.name}
-      </div>
+      {/* File Details */}
+      <div className="tangent-file-details">
+        {/* File Name */}
+        <div
+          className="tangent-file-preview-name"
+          title={file.name}
+        >
+          {file.name}
+        </div>
 
-      {/* File Size */}
-      <div className="tangent-file-preview-size">
-        {fileSize}
+        {/* File Size */}
+        <div className="tangent-file-preview-size">
+          {fileSize}
+        </div>
       </div>
 
       {/* Status Indicator */}

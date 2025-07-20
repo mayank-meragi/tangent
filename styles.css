@@ -647,18 +647,18 @@ If your plugin does not need CSS, delete this file.
 	border-radius: 8px;
 	padding: 8px;
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
 	align-items: center;
-	gap: 4px;
-	min-height: 100px;
+	gap: 12px;
+	min-height: 60px;
 	transition: all 0.2s ease;
 	cursor: pointer;
 }
 
 /* File preview area */
 .tangent-file-preview-area {
-	width: 80px;
-	height: 80px;
+	width: 48px;
+	height: 48px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -666,6 +666,7 @@ If your plugin does not need CSS, delete this file.
 	overflow: hidden;
 	background: var(--background-secondary);
 	border: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
 }
 
 /* File image */
@@ -676,12 +677,21 @@ If your plugin does not need CSS, delete this file.
 	border-radius: 2px;
 }
 
+/* File details container */
+.tangent-file-details {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+
 /* File name */
 .tangent-file-preview-name {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 500;
 	color: var(--text-normal);
-	text-align: center;
+	text-align: left;
 	line-height: 1.2;
 	max-width: 100%;
 	overflow: hidden;
@@ -693,7 +703,7 @@ If your plugin does not need CSS, delete this file.
 .tangent-file-preview-size {
 	font-size: 10px;
 	color: var(--text-muted);
-	text-align: center;
+	text-align: left;
 }
 
 /* Status indicators */
