@@ -32,7 +32,7 @@ const IconButton: React.FC<IconButtonProps> = ({
       onMouseEnter={() => !disabled && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        background: isHovered && !disabled ? 'var(--background-modifier-hover)' : 'none',
+        backgroundColor: isHovered && !disabled ? 'var(--background-modifier-hover)' : 'transparent',
         border: 'none',
         boxShadow: 'none',
         outline: 'none',
