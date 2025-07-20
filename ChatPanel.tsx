@@ -20,7 +20,7 @@ import { VariableInputModal } from './src/components/VariableInputModal';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController) => Promise<void>;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -228,6 +228,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const currentMessagesRef = useRef(messages);
   const justSelectedFileRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Add AbortController ref for cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
   // State for which view is active
   const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
 
@@ -241,6 +243,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // Calculate thinking budget based on enabled state
   const getThinkingBudget = () => {
     return thinkingEnabled ? (selectedModel.defaultThinkingBudget || 8192) : 0;
+  };
+
+  // Cancel streaming function
+  const cancelStreaming = () => {
+    if (abortControllerRef.current) {
+      console.log('[ChatPanel] Cancelling streaming request');
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
   };
 
   // Tool confirmation handler
@@ -811,7 +823,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
     if (isStreaming) return;
     
-
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
     
     const currentMessages = currentMessagesRef.current;
     const conversationHistory = existingConversationHistory || [];
@@ -854,9 +867,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     let streamingThinkingId: string | null = null;
     let lastStreamingThought = '';
 
-    await streamAIResponse(
-      '', // Empty prompt since we're using conversation history
-      (tokenOrChunk: any) => {
+    try {
+      await streamAIResponse(
+        '', // Empty prompt since we're using conversation history
+        (tokenOrChunk: any) => {
         if (typeof tokenOrChunk === 'string') {
           if (streamingMessageId) {
             lastStreamingMessage += tokenOrChunk;
@@ -968,8 +982,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         }
       },
       handleToolConfirmation,
-      webSearchEnabled
+      webSearchEnabled,
+      abortControllerRef.current // Pass the AbortController
     );
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('[ChatPanel] Streaming was cancelled');
+      // Mark any streaming messages as cancelled
+      if (streamingMessageId) {
+        updateMessage(streamingMessageId, { 
+          streaming: false,
+          message: lastStreamingMessage + '\n\n*[Response cancelled by user]*'
+        });
+      }
+      if (streamingThinkingId) {
+        updateMessage(streamingThinkingId, { streaming: false });
+      }
+    } else {
+      console.error('[ChatPanel] Error in streaming:', error);
+    }
+  } finally {
+    setIsStreaming(false);
+    abortControllerRef.current = null;
+  }
   };
 
   const formatTimestamp = () => {
@@ -1143,6 +1178,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const getMCPServerStatuses = () => mcpServerManager?.getAllServerStatuses() || [];
   
   const handleNewChat = () => {
+    // Cancel any ongoing streaming
+    if (isStreaming) {
+      cancelStreaming();
+    }
+    
     clearMessages();
     setCurrentConversation(null);
     setInput('');
@@ -1302,6 +1342,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           // Web search props
           webSearchEnabled={webSearchEnabled}
           setWebSearchEnabled={setWebSearchEnabled}
+          // Cancellation prop
+          onCancelStreaming={cancelStreaming}
         />
       </div>
         </>

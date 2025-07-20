@@ -1015,7 +1015,8 @@ class ChatPanelView extends ItemView {
 			thinkingBudget?: number,
 			onThinking?: (thoughts: string) => void,
 			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>,
-			webSearchEnabled?: boolean
+			webSearchEnabled?: boolean,
+			abortController?: AbortController
 		) => {
 			await streamAIResponse({
 				apiKey: this.plugin.settings.geminiApiKey || '',
@@ -1032,6 +1033,7 @@ class ChatPanelView extends ItemView {
 				unifiedToolManager: this.plugin.unifiedToolManager,
 				maxNestedCalls: 3,
 				webSearchEnabled: webSearchEnabled || false,
+				abortController,
 			});
 		};
 

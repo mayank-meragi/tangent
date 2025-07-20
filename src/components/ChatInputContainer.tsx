@@ -46,6 +46,8 @@ type ChatInputContainerProps = {
   // Web search props
   webSearchEnabled: boolean;
   setWebSearchEnabled: (enabled: boolean) => void;
+  // Cancellation prop
+  onCancelStreaming?: () => void;
 };
 
 const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
@@ -83,6 +85,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   // Web search props
   webSearchEnabled,
   setWebSearchEnabled,
+  onCancelStreaming,
 }) => {
   // Convert files to dropdown items for the generic dropdown
   const fileDropdownItems: DropdownItem[] = filteredFiles.map(file => ({
@@ -437,12 +440,12 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
             </button>
           )}
           <IconButton
-            icon={isStreaming ? <LucidIcon name="loader-2" size={18} className="animate-spin" /> : <LucidIcon name="send" size={18} />}
-            ariaLabel="Send"
-            onClick={() => sendMessage()}
-            disabled={isStreaming}
-            title={isStreaming ? "Sending..." : "Send"}
-            color="var(--color-accent)"
+            icon={isStreaming ? <LucidIcon name="x" size={18} /> : <LucidIcon name="send" size={18} />}
+            ariaLabel={isStreaming ? "Cancel" : "Send"}
+            onClick={isStreaming ? onCancelStreaming : () => sendMessage()}
+            disabled={false} // Allow clicking during streaming for cancellation
+            title={isStreaming ? "Cancel streaming" : "Send"}
+            color={isStreaming ? "var(--color-red)" : "var(--color-accent)"}
           />
         </div>
       </div>
