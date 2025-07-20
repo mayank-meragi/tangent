@@ -80,27 +80,7 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
   );
 };
 
-// Search Status Indicator Component
-const SearchStatusIndicator: React.FC<{ isSearching: boolean }> = ({ isSearching }) => {
-  if (!isSearching) return null;
-  
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      padding: '4px 8px',
-      background: 'var(--background-secondary)',
-      borderRadius: '4px',
-      fontSize: '12px',
-      color: 'var(--text-muted)',
-      marginBottom: '8px'
-    }}>
-      <LucidIcon name="search" size={12} />
-      <span>Searching web...</span>
-    </div>
-  );
-};
+
 
 
 
@@ -230,7 +210,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFile[]>([]);
   // Web search state
   const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
-  const [isSearching, setIsSearching] = React.useState(false);
   
   // Template-related state
   const [templateService] = useState(() => new TemplateService(app));
@@ -832,10 +811,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
     if (isStreaming) return;
     
-    // Set search status if web search is enabled
-    if (webSearchEnabled) {
-      setIsSearching(true);
-    }
+
     
     const currentMessages = currentMessagesRef.current;
     const conversationHistory = existingConversationHistory || [];
@@ -968,8 +944,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           streamingThinkingId = null;
           lastStreamingThought = '';
         }
-        // Clear search status
-        setIsSearching(false);
       },
       conversationHistory,
       getThinkingBudget(),
@@ -1228,8 +1202,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             flexDirection: 'column',
             gap: '16px'
           }}>
-            {/* Search Status Indicator */}
-            <SearchStatusIndicator isSearching={isSearching} />
+
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
             return (
