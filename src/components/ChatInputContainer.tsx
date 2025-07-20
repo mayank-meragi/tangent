@@ -243,6 +243,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
           boxSizing: 'border-box',
           lineHeight: '1.4',
         }}
+        className="tangent-chat-textarea"
       />
       
       {/* File Dropdown */}

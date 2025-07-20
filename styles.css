@@ -238,6 +238,14 @@ If your plugin does not need CSS, delete this file.
 	100% { transform: rotate(360deg); }
 }
 
+/* Remove focus borders from chat textarea */
+.tangent-chat-textarea:focus,
+.tangent-chat-textarea:focus-visible {
+	outline: none !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
 /* Ensure buttons don't interfere with text selection */
 .message-copy-button,
 .code-block-copy-button {
