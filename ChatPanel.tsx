@@ -998,6 +998,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       // Remove all messages after the edited message
       removeMessagesAfter(editingMessageId);
       setEditingMessageId(null); // Clear editing state
+      setInput(''); // Clear input after editing
     }
 
     // Build conversation history
@@ -1090,9 +1091,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       console.error('Error sending message:', error);
     } finally {
       setIsStreaming(false);
-      if (!editingMessageId) {
-        setInput('');
-      }
+      // Always clear input after sending, regardless of editing state
+      setInput('');
     }
   };
 
