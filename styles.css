@@ -232,6 +232,12 @@ If your plugin does not need CSS, delete this file.
 	pointer-events: auto;
 }
 
+/* Spinner animation for cancel button */
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
 /* Ensure buttons don't interfere with text selection */
 .message-copy-button,
 .code-block-copy-button {

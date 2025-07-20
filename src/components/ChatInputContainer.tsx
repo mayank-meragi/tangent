@@ -159,7 +159,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
       borderRadius: '10px',
       backgroundColor: 'var(--background-secondary)',
       margin: '8px',
-      padding: '4px 8px 32px 4px',
+      padding: '4px 8px 40px 4px',
       display: 'flex',
       flexDirection: 'column',
       gap: '6px',
@@ -439,14 +439,43 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
               <LucidIcon name="x" size={14} />
             </button>
           )}
-          <IconButton
-            icon={isStreaming ? <LucidIcon name="x" size={18} /> : <LucidIcon name="send" size={18} />}
-            ariaLabel={isStreaming ? "Cancel" : "Send"}
-            onClick={isStreaming ? onCancelStreaming : () => sendMessage()}
-            disabled={false} // Allow clicking during streaming for cancellation
-            title={isStreaming ? "Cancel streaming" : "Send"}
-            color={isStreaming ? "var(--color-red)" : "var(--color-accent)"}
-          />
+          <div style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px'
+          }}>
+            {/* Spinner background when streaming */}
+            {isStreaming && (
+              <div style={{
+                position: 'absolute',
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: '2px solid var(--background-modifier-border)',
+                borderTop: '2px solid var(--color-red)',
+                animation: 'spin 1s linear infinite',
+                zIndex: 1,
+                opacity: 0.8
+              }} />
+            )}
+            <IconButton
+              icon={isStreaming ? <LucidIcon name="x" size={18} /> : <LucidIcon name="send" size={18} />}
+              ariaLabel={isStreaming ? "Cancel" : "Send"}
+              onClick={isStreaming ? onCancelStreaming : () => sendMessage()}
+              disabled={false} // Allow clicking during streaming for cancellation
+              title={isStreaming ? "Cancel streaming" : "Send"}
+              color={isStreaming ? "var(--color-red)" : "var(--color-accent)"}
+              style={{
+                position: 'relative',
+                zIndex: 2,
+                backgroundColor: isStreaming ? 'var(--background-primary)' : undefined,
+                border: isStreaming ? '1px solid var(--background-modifier-border)' : undefined
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
