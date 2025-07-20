@@ -28,24 +28,6 @@ export function getPreconfiguredServers(): MCPServerConfig[] {
       retryAttempts: 3
     },
     {
-      name: 'git',
-      transport: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-git'],
-      enabled: false,
-      timeout: 60,
-      retryAttempts: 3
-    },
-    {
-      name: 'search',
-      transport: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-search'],
-      enabled: false,
-      timeout: 60,
-      retryAttempts: 3
-    },
-    {
       name: 'google-calendar',
       transport: 'stdio',
       command: 'npx',
@@ -212,59 +194,7 @@ Note: Obsidian plugins run in a restricted environment. If uvx still doesn't wor
    - Subsequent runs will use cached version
 
 Note: The filesystem server provides file and directory operations capabilities.`;
-    
-    case 'git':
-      return `MCP Git Server Setup Instructions:
 
-1. Ensure Node.js and npm are installed:
-   - Check with: node --version && npm --version
-   - Download from: https://nodejs.org/
-
-2. The git server uses npx to run @modelcontextprotocol/server-git
-   - npx will automatically download and run the package
-   - No manual installation required
-
-3. Verify npx is available:
-   - Open terminal and run: which npx
-   - Should be available with Node.js installation
-
-4. For Obsidian plugins:
-   - Node.js and npm must be available in the system PATH
-   - Try restarting Obsidian after installing Node.js
-   - Check that npx is accessible from terminal
-
-5. First run will download the package:
-   - npx will automatically download @modelcontextprotocol/server-git
-   - Subsequent runs will use cached version
-
-Note: The git server provides Git repository operations and version control capabilities.`;
-    
-    case 'search':
-      return `MCP Search Server Setup Instructions:
-
-1. Ensure Node.js and npm are installed:
-   - Check with: node --version && npm --version
-   - Download from: https://nodejs.org/
-
-2. The search server uses npx to run @modelcontextprotocol/server-search
-   - npx will automatically download and run the package
-   - No manual installation required
-
-3. Verify npx is available:
-   - Open terminal and run: which npx
-   - Should be available with Node.js installation
-
-4. For Obsidian plugins:
-   - Node.js and npm must be available in the system PATH
-   - Try restarting Obsidian after installing Node.js
-   - Check that npx is accessible from terminal
-
-5. First run will download the package:
-   - npx will automatically download @modelcontextprotocol/server-search
-   - Subsequent runs will use cached version
-
-Note: The search server provides file and content search capabilities.`;
-    
     case 'google-calendar':
       return `Google Calendar MCP Server Setup Instructions:
 
