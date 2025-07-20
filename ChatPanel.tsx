@@ -45,7 +45,7 @@ const CollapsibleToolCall: React.FC<{ toolName: string; toolArgs: any }> = ({ to
     <div className="tangent-chat-tool-call">
       <span className="tangent-collapsible-trigger" onClick={() => setOpen(o => !o)}>
         <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
-        <LucidIcon name="wrench" size={12} />
+        <LucidIcon name="wrench" size={8} />
         <b>Calling tool:</b> {toolName}
       </span>
       {open && toolArgs && (
@@ -62,7 +62,7 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
     <div className="tangent-chat-tool-result">
       <span className="tangent-collapsible-trigger" onClick={() => setOpen(o => !o)}>
         <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
-        <LucidIcon name="check-circle" size={12} />
+        <LucidIcon name="check-circle" size={8} />
         <b>Tool result:</b> {toolName}
       </span>
       {open && (

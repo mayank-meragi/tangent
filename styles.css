@@ -881,16 +881,7 @@ If your plugin does not need CSS, delete this file.
 	gap: 2px;
 	font-size: 0.75em;
 }
-.tangent-chat-tool-call span::before {
-	content: '🛠️';
-	margin-right: 2px;
-	font-size: 0.8em;
-}
-.tangent-chat-tool-result span::before {
-	content: '✅';
-	margin-right: 2px;
-	font-size: 0.8em;
-}
+/* Removed CSS pseudo-elements to avoid duplicate icons - now using LucidIcon components only */
 .tangent-chat-tool-call pre, .tangent-chat-tool-result pre {
 	background: var(--background-secondary-alt);
 	border-radius: 3px;
