@@ -238,12 +238,215 @@ If your plugin does not need CSS, delete this file.
 	100% { transform: rotate(360deg); }
 }
 
+/* Chat textarea styling */
+.tangent-chat-textarea {
+	width: 100%;
+	min-height: 44px;
+	max-height: 200px;
+	padding: 2px 8px;
+	border: none;
+	background-color: transparent;
+	color: var(--text-normal);
+	font-size: 14px;
+	outline: none;
+	resize: none;
+	overflow-y: auto;
+	border-radius: 8px;
+	box-sizing: border-box;
+	line-height: 1.4;
+}
+
 /* Remove focus borders from chat textarea */
 .tangent-chat-textarea:focus,
 .tangent-chat-textarea:focus-visible {
 	outline: none !important;
 	border: none !important;
 	box-shadow: none !important;
+}
+
+/* Chat Input Container Styles */
+.tangent-dropdown-container {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	right: 0;
+	z-index: 1000;
+	margin-bottom: 8px;
+}
+
+.tangent-loading-templates {
+	padding: 12px 16px;
+	background-color: var(--background-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text-muted);
+}
+
+.tangent-template-error {
+	padding: 12px 16px;
+	background-color: var(--color-red-bg);
+	border-radius: 8px;
+	border: 1px solid var(--color-red);
+	color: var(--color-red);
+	font-size: 14px;
+}
+
+.tangent-template-error-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.tangent-bottom-controls {
+	position: absolute;
+	bottom: 2px;
+	left: 8px;
+	right: 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	pointer-events: none;
+}
+
+.tangent-model-selection {
+	display: flex;
+	align-items: center;
+	pointer-events: auto;
+}
+
+.tangent-model-select {
+	background-color: transparent;
+	color: var(--text-faint);
+	border: none;
+	border-width: 0;
+	border-style: none;
+	box-shadow: none;
+	font-size: 12px;
+	outline: none;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	transition: color 0.2s ease;
+}
+
+.tangent-model-select:hover {
+	color: var(--text-muted);
+}
+
+.tangent-toggle-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	pointer-events: auto;
+}
+
+.tangent-action-buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	pointer-events: auto;
+}
+
+.tangent-cancel-edit-btn {
+	width: 32px;
+	height: 32px;
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	opacity: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 2px;
+}
+
+.tangent-cancel-edit-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.tangent-send-button-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+}
+
+.tangent-spinner-background {
+	position: absolute;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	border: 2px solid var(--background-modifier-border);
+	border-top: 2px solid var(--color-red);
+	animation: spin 1s linear infinite;
+	z-index: 1;
+	opacity: 0.8;
+}
+
+.tangent-send-icon-button {
+	position: relative;
+	z-index: 2;
+}
+
+.tangent-send-icon-button.streaming {
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* Main container styling */
+.tangent-chat-input-main-container {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background-color: var(--background-secondary);
+	margin: 8px;
+	padding: 4px 8px 40px 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	position: relative;
+}
+
+/* Context files container */
+.tangent-context-files-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+/* Context file item */
+.tangent-context-file-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 2px 4px;
+	font-size: 11px;
+	color: var(--text-muted);
+	font-weight: 500;
+	opacity: 0.85;
+	height: 25px;
+}
+
+.tangent-context-file-item.current-file {
+	opacity: 1;
+}
+
+/* Current file indicator */
+.tangent-current-file-indicator {
+	color: var(--text-faint);
+	margin-left: 2px;
 }
 
 /* Ensure buttons don't interfere with text selection */

@@ -154,44 +154,16 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   };
 
   return (
-    <div style={{
-      border: '1px solid var(--background-modifier-border)',
-      borderRadius: '10px',
-      backgroundColor: 'var(--background-secondary)',
-      margin: '8px',
-      padding: '4px 8px 40px 4px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '6px',
-      position: 'relative',
-    }}>
+    <div className="tangent-chat-input-main-container">
       {/* Context Files */}
       {selectedFiles.length > 0 && (
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '8px',
-          marginBottom: '4px',
-        }}>
+        <div className="tangent-context-files-container">
           {selectedFiles.map((file, index) => (
-            <div key={file.path} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              background: 'var(--background-primary)',
-              border: '1px solid var(--background-modifier-border)',
-              borderRadius: '6px',
-              padding: '2px 4px',
-              fontSize: '11px',
-              color: 'var(--text-muted)',
-              fontWeight: 500,
-              opacity: file.isCurrentFile ? 1 : 0.85,
-              height: '25px',
-            }}>
+            <div key={file.path} className={`tangent-context-file-item ${file.isCurrentFile ? 'current-file' : ''}`}>
               <LucidIcon name="file-text" size={12} />
               <span>{file.name}</span>
               {file.isCurrentFile && (
-                <span style={{ color: 'var(--text-faint)', marginLeft: 2 }}>(Current file)</span>
+                <span className="tangent-current-file-indicator">(Current file)</span>
               )}
               <IconButton
                 onClick={() => removeFileFromContext(file.path)}
@@ -227,35 +199,12 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
           }
           // Let dropdowns handle their own keyboard navigation
         }}
-        style={{
-          width: '100%',
-          minHeight: '44px',
-          maxHeight: '200px',
-          padding: '2px 8px',
-          border: 'none',
-          backgroundColor: 'transparent',
-          color: 'var(--text-normal)',
-          fontSize: '14px',
-          outline: 'none',
-          resize: 'none',
-          overflowY: 'auto',
-          borderRadius: '8px',
-          boxSizing: 'border-box',
-          lineHeight: '1.4',
-        }}
         className="tangent-chat-textarea"
       />
       
       {/* File Dropdown */}
       {showFileDropdown && (
-        <div style={{
-          position: 'absolute',
-          bottom: '100%',
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          marginBottom: '8px'
-        }}>
+        <div className="tangent-dropdown-container">
           <Dropdown
             items={fileDropdownItems}
             onValueChange={handleFileDropdownSelect}
@@ -274,38 +223,15 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
 
       {/* Template Dropdown */}
       {showTemplateDropdown && (
-        <div style={{
-          position: 'absolute',
-          bottom: '100%',
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          marginBottom: '8px'
-        }}>
+        <div className="tangent-dropdown-container">
           {isLoadingTemplates ? (
-            <div style={{
-              padding: '12px 16px',
-              backgroundColor: 'var(--background-secondary)',
-              borderRadius: '8px',
-              border: '1px solid var(--background-modifier-border)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              color: 'var(--text-muted)'
-            }}>
+            <div className="tangent-loading-templates">
               <LucidIcon name="loader-2" size={16} className="animate-spin" />
               <span>Loading templates...</span>
             </div>
           ) : templateError ? (
-            <div style={{
-              padding: '12px 16px',
-              backgroundColor: 'var(--color-red-bg)',
-              borderRadius: '8px',
-              border: '1px solid var(--color-red)',
-              color: 'var(--color-red)',
-              fontSize: '14px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <div className="tangent-template-error">
+              <div className="tangent-template-error-header">
                 <LucidIcon name="alert-circle" size={16} />
                 <strong>Template Error</strong>
               </div>
@@ -330,18 +256,9 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
       )}
 
       {/* Bottom controls */}
-      <div style={{
-        position: 'absolute',
-        bottom: '2px',
-        left: '8px',
-        right: '8px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        pointerEvents: 'none' // Allow clicks to pass through to children
-      }}>
+      <div className="tangent-bottom-controls">
         {/* Model Selection - Bottom Left */}
-        <div style={{ display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>
+        <div className="tangent-model-selection">
           <select
             value={selectedModel.id}
             onChange={e => {
@@ -350,26 +267,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
             }}
             disabled={isStreaming}
             aria-label="Select AI model"
-            style={{
-              backgroundColor: 'transparent',
-              color: 'var(--text-faint)',
-              border: 'none',
-              borderWidth: '0',
-              borderStyle: 'none',
-              boxShadow: 'none',
-              fontSize: '12px',
-              outline: 'none',
-              cursor: 'pointer',
-              appearance: 'none',
-              WebkitAppearance: 'none',
-              transition: 'color 0.2s ease'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = 'var(--text-muted)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = 'var(--text-faint)';
-            }}
+            className="tangent-model-select"
           >
             {MODEL_CONFIGS.map(model => (
               <option key={model.id} value={model.id}>
@@ -380,7 +278,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         </div>
 
         {/* Toggle Controls - Center */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
+        <div className="tangent-toggle-controls">
           {/* Thinking Toggle Control */}
           {selectedModel.supportsThinking && (
             <ToggleButton
@@ -409,7 +307,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         </div>
 
         {/* Action Buttons - Bottom Right */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
+        <div className="tangent-action-buttons">
           {/* File Upload Button */}
           <FileUploadButton
             onFileSelect={onFileUpload}
@@ -421,46 +319,16 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
             <button
               onClick={handleCancelEdit}
               disabled={isStreaming}
-              style={{
-                width: '32px',
-                height: '32px',
-                backgroundColor: 'var(--background-secondary)',
-                color: 'var(--text-muted)',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isStreaming ? 'not-allowed' : 'pointer',
-                opacity: isStreaming ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '2px'
-              }}
+              className="tangent-cancel-edit-btn"
               title="Cancel editing"
             >
               <LucidIcon name="x" size={14} />
             </button>
           )}
-          <div style={{
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '32px',
-            height: '32px'
-          }}>
+          <div className="tangent-send-button-container">
             {/* Spinner background when streaming */}
             {isStreaming && (
-              <div style={{
-                position: 'absolute',
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                border: '2px solid var(--background-modifier-border)',
-                borderTop: '2px solid var(--color-red)',
-                animation: 'spin 1s linear infinite',
-                zIndex: 1,
-                opacity: 0.8
-              }} />
+              <div className="tangent-spinner-background" />
             )}
             <IconButton
               icon={isStreaming ? <LucidIcon name="x" size={18} /> : <LucidIcon name="send" size={18} />}
