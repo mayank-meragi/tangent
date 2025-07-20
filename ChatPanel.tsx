@@ -27,12 +27,12 @@ export interface ChatPanelProps {
 
 // File list result renderer
 const FileListResult: React.FC<{ files: { name: string; type: 'file' | 'folder'; path: string }[] }> = ({ files }) => (
-  <ul style={{ paddingLeft: 20, margin: 0 }}>
+  <ul className="tangent-file-list">
     {files.map((file, i) => (
-      <li key={i} style={{ listStyle: 'none', marginBottom: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <li key={i} className="tangent-file-list-item">
         <LucidIcon name={file.type === 'folder' ? 'folder' : 'file-text'} size={12} />
-        <span style={{ fontWeight: file.type === 'folder' ? 600 : 400 }}>{file.name}</span>
-        <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', marginLeft: '8px' }}>({file.path})</span>
+        <span className={`tangent-file-name ${file.type === 'folder' ? 'folder' : ''}`}>{file.name}</span>
+        <span className="tangent-file-path">({file.path})</span>
       </li>
     ))}
   </ul>
@@ -43,13 +43,13 @@ const CollapsibleToolCall: React.FC<{ toolName: string; toolArgs: any }> = ({ to
   const [open, setOpen] = useState(false);
   return (
     <div className="tangent-chat-tool-call">
-      <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setOpen(o => !o)}>
+      <span className="tangent-collapsible-trigger" onClick={() => setOpen(o => !o)}>
         <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
         <LucidIcon name="wrench" size={12} />
         <b>Calling tool:</b> {toolName}
       </span>
       {open && toolArgs && (
-        <pre style={{ margin: '4px 0 0 0', fontSize: '0.9em', color: '#888', background: 'none', border: 'none', padding: 0 }}>{JSON.stringify(toolArgs, null, 2)}</pre>
+        <pre className="tangent-tool-args">{JSON.stringify(toolArgs, null, 2)}</pre>
       )}
     </div>
   );
@@ -60,13 +60,13 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
   const [open, setOpen] = useState(false);
   return (
     <div className="tangent-chat-tool-result">
-      <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setOpen(o => !o)}>
+      <span className="tangent-collapsible-trigger" onClick={() => setOpen(o => !o)}>
         <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
         <LucidIcon name="check-circle" size={12} />
         <b>Tool result:</b> {toolName}
       </span>
       {open && (
-        <div style={{ marginTop: 4 }}>
+        <div className="tangent-tool-result-content">
           {result.type === 'file-list' ? (
             <FileListResult files={result.files} />
           ) : result.type === 'text' ? (
@@ -106,17 +106,11 @@ const ToolConfirmationCard: React.FC<{
   if (approved !== undefined) {
     // Show result of confirmation
     return (
-      <div style={{
-        padding: '12px 16px',
-        backgroundColor: approved ? 'var(--color-green-bg)' : 'var(--color-red-bg)',
-        borderRadius: '8px',
-        border: `1px solid ${approved ? 'var(--color-green)' : 'var(--color-red)'}`,
-        margin: '8px 0'
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+      <div className={`tangent-tool-confirmation-result ${approved ? 'approved' : 'denied'}`}>
+        <div className="tangent-tool-confirmation-title">
           {approved ? '✅ Tool Approved' : '❌ Tool Denied'}
         </div>
-        <div style={{ fontSize: '13px', opacity: 0.8 }}>
+        <div className="tangent-tool-confirmation-message">
           {pendingTool.name} {approved ? 'was executed' : 'was cancelled'}
         </div>
       </div>
@@ -124,53 +118,31 @@ const ToolConfirmationCard: React.FC<{
   }
 
   return (
-    <div style={{
-      padding: '12px 16px',
-      backgroundColor: 'var(--background-secondary)',
-      borderRadius: '8px',
-      border: '1px solid var(--color-orange)',
-      margin: '8px 0'
-    }}>
-      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--color-orange)' }}>
+    <div className="tangent-tool-confirmation-pending">
+      <div className="tangent-tool-confirmation-header">
         🔧 Tool Confirmation Required
       </div>
-      <div style={{ marginBottom: '8px' }}>
+      <div className="tangent-tool-confirmation-tool">
         <strong>Tool:</strong> {pendingTool.name}
       </div>
-      <div style={{ marginBottom: '12px', fontSize: '12px', fontFamily: 'monospace', backgroundColor: 'var(--background-primary)', padding: '8px', borderRadius: '4px' }}>
+      <div className="tangent-tool-confirmation-args">
         <strong>Arguments:</strong>
-        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+        <pre>
           {JSON.stringify(pendingTool.args, null, 2)}
         </pre>
       </div>
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div className="tangent-tool-confirmation-actions">
         <button
           onClick={handleApprove}
           disabled={isProcessing}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: 'var(--color-green)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
-            opacity: isProcessing ? 0.6 : 1
-          }}
+          className="tangent-tool-confirmation-btn approve"
         >
           {isProcessing ? 'Processing...' : 'Approve'}
         </button>
         <button
           onClick={handleDeny}
           disabled={isProcessing}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: 'var(--color-red)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
-            opacity: isProcessing ? 0.6 : 1
-          }}
+          className="tangent-tool-confirmation-btn deny"
         >
           {isProcessing ? 'Processing...' : 'Deny'}
         </button>
@@ -1199,16 +1171,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   return (
-    <div className="tangent-chat-panel-root" style={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      backgroundColor: 'var(--background-primary)'
-    }}>
+    <div className="tangent-chat-panel-root tangent-chat-panel-main">
       {/* Top Bar with Icon Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: '1.2em', letterSpacing: 1 }}>TANGENT</div>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div className="tangent-chat-panel-top-bar">
+        <div className="tangent-chat-panel-title">TANGENT</div>
+        <div className="tangent-chat-panel-actions">
           <IconButton
             icon={<LucidIcon name="history" size={18} />}
             ariaLabel="History"
@@ -1234,14 +1201,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       {activeView === 'chat' && (
         <>
           {/* Messages */}
-          <div style={{ 
-            flex: 1, 
-            overflowY: 'auto',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px'
-          }}>
+          <div className="tangent-chat-panel-messages">
 
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
@@ -1302,11 +1262,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       </div>
 
       {/* Input Area */}
-      <div style={{
-        padding: '0',
-        borderTop: '1px solid var(--background-modifier-border)',
-        backgroundColor: 'var(--background-primary)'
-      }}>
+      <div className="tangent-chat-panel-input-area">
         <ChatInputContainer
           selectedFiles={selectedFiles}
           input={input}
@@ -1365,7 +1321,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         />
       )}
       {activeView === 'servers' && (
-        <div style={{ padding: '16px' }}>
+        <div className="tangent-servers-view">
           <h3>MCP Servers</h3>
           <p>Server management has been simplified. Use the settings to configure MCP servers.</p>
           <p>Current server statuses:</p>
@@ -1373,7 +1329,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             {getMCPServerStatuses().map((status: any) => (
               <li key={status.name}>
                 {status.name}: {status.status}
-                {status.lastError && <span style={{ color: 'red' }}> - {status.lastError}</span>}
+                {status.lastError && <span className="tangent-server-error"> - {status.lastError}</span>}
               </li>
             ))}
           </ul>

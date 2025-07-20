@@ -35,47 +35,16 @@ const FilePreviewItem: React.FC<FilePreviewItemProps> = ({
 
   return (
     <div
-      className="file-preview-item"
-      style={{
-        position: 'relative',
-        background: 'var(--background-primary)',
-        border: '1px solid var(--background-modifier-border)',
-        borderRadius: '8px',
-        padding: '8px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '4px',
-        minHeight: '100px',
-        transition: 'all 0.2s ease',
-        cursor: 'pointer'
-      }}
+      className="file-preview-item tangent-file-preview-item"
       onMouseEnter={() => setShowRemoveConfirm(false)}
     >
       {/* File Preview */}
-      <div
-        style={{
-          width: '80px',
-          height: '80px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          background: 'var(--background-secondary)',
-          border: '1px solid var(--background-modifier-border)'
-        }}
-      >
+      <div className="tangent-file-preview-area">
         {isImage && file.preview && !imageLoadError ? (
           <img
             src={file.preview}
             alt={file.name}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              borderRadius: '2px'
-            }}
+            className="tangent-file-preview-image"
             onError={handleImageError}
           />
                  ) : (
@@ -89,80 +58,28 @@ const FilePreviewItem: React.FC<FilePreviewItemProps> = ({
 
       {/* File Name */}
       <div
-        style={{
-          fontSize: '11px',
-          fontWeight: 500,
-          color: 'var(--text-normal)',
-          textAlign: 'center',
-          lineHeight: '1.2',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}
+        className="tangent-file-preview-name"
         title={file.name}
       >
         {file.name}
       </div>
 
       {/* File Size */}
-      <div
-        style={{
-          fontSize: '10px',
-          color: 'var(--text-muted)',
-          textAlign: 'center'
-        }}
-      >
+      <div className="tangent-file-preview-size">
         {fileSize}
       </div>
 
       {/* Status Indicator */}
       {file.status === 'uploading' && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: 'var(--color-orange)',
-            animation: 'pulse 1.5s infinite'
-          }}
-        />
+        <div className="tangent-file-status-indicator uploading" />
       )}
 
       {file.status === 'error' && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            background: 'var(--color-red)'
-          }}
-        />
+        <div className="tangent-file-status-indicator error" />
       )}
 
       {/* Remove Button */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '4px',
-          right: '4px',
-          opacity: 0,
-          transition: 'opacity 0.2s ease',
-          zIndex: 1
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.opacity = '1';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.opacity = '0';
-        }}
-      >
+      <div className="tangent-file-remove-container">
         <IconButton
           icon={
             showRemoveConfirm ? (
@@ -188,21 +105,7 @@ const FilePreviewItem: React.FC<FilePreviewItemProps> = ({
 
       {/* Error Message */}
       {file.status === 'error' && file.error && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '0',
-            left: '0',
-            right: '0',
-            background: 'var(--color-red-bg)',
-            color: 'var(--color-red)',
-            fontSize: '9px',
-            padding: '2px 4px',
-            textAlign: 'center',
-            borderBottomLeftRadius: '7px',
-            borderBottomRightRadius: '7px'
-          }}
-        >
+        <div className="tangent-file-error-message">
           {file.error}
         </div>
       )}
