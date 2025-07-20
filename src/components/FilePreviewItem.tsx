@@ -177,7 +177,7 @@ const FilePreviewItem: React.FC<FilePreviewItemProps> = ({
           style={{
             width: '20px',
             height: '20px',
-            background: showRemoveConfirm ? 'var(--color-red)' : 'var(--background-secondary)',
+            backgroundColor: showRemoveConfirm ? 'var(--color-red)' : 'var(--background-secondary)',
             color: showRemoveConfirm ? 'white' : 'var(--text-muted)',
             border: '1px solid var(--background-modifier-border)',
             borderRadius: '4px',

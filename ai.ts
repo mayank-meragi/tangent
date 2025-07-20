@@ -235,17 +235,42 @@ export async function streamAIResponse({
     if (webSearchEnabled && fullResponse?.candidates?.[0]?.groundingMetadata) {
       const metadata = fullResponse.candidates[0].groundingMetadata;
       console.log('[AI DEBUG] Grounding metadata found:', metadata);
+      console.log('[AI DEBUG] Grounding metadata keys:', Object.keys(metadata));
+      console.log('[AI DEBUG] Full grounding metadata structure:', JSON.stringify(metadata, null, 2));
       
       if (metadata.webSearchQueries && metadata.webSearchQueries.length > 0) {
+        console.log('[AI DEBUG] Web search queries structure:', metadata.webSearchQueries);
+        
         // Add search context to response
         if (onToken) {
           onToken('\n\n**🌐 Sources from web search:**\n');
           metadata.webSearchQueries.forEach((query: any, index: number) => {
-            onToken(`**Query ${index + 1}:** ${query.searchQuery}\n`);
-            if (query.searchResults && query.searchResults.length > 0) {
-              onToken(`**Results:** ${query.searchResults.length} sources found\n`);
-              query.searchResults.slice(0, 3).forEach((result: any, resultIndex: number) => {
-                onToken(`- ${resultIndex + 1}. [${result.title}](${result.url})\n`);
+            console.log(`[AI DEBUG] Processing query ${index + 1}:`, query);
+            console.log(`[AI DEBUG] Query type:`, typeof query);
+            
+            // Handle both string queries and object queries
+            let searchQuery: string;
+            if (typeof query === 'string') {
+              // Query is a string directly
+              searchQuery = query;
+            } else if (typeof query === 'object' && query !== null) {
+              // Query is an object, try different property names
+              searchQuery = query.searchQuery || query.query || query.search || query.text || 'Unknown query';
+            } else {
+              searchQuery = 'Unknown query';
+            }
+            
+            console.log(`[AI DEBUG] Extracted search query: "${searchQuery}"`);
+            
+            onToken(`**Query ${index + 1}:** ${searchQuery}\n`);
+            
+            // Look for search results in the grounding chunks
+            if (metadata.groundingChunks && metadata.groundingChunks.length > 0) {
+              onToken(`**Results:** ${metadata.groundingChunks.length} sources found\n`);
+              metadata.groundingChunks.slice(0, 3).forEach((chunk: any, resultIndex: number) => {
+                const title = chunk.web?.title || 'Untitled';
+                const url = chunk.web?.uri || '#';
+                onToken(`- ${resultIndex + 1}. [${title}](${url})\n`);
               });
             }
             onToken('\n');
@@ -253,6 +278,25 @@ export async function streamAIResponse({
         }
       } else {
         console.log('[AI DEBUG] No web search queries found in grounding metadata');
+        
+        // Check if there are other properties that might contain search information
+        console.log('[AI DEBUG] Available metadata properties:', Object.keys(metadata));
+        
+        // Try to find any search-related information in the metadata
+        const searchInfo = metadata.searchResults || metadata.results || metadata.sources || metadata.citations;
+        if (searchInfo && onToken) {
+          console.log('[AI DEBUG] Found alternative search info:', searchInfo);
+          onToken('\n\n**🌐 Sources from web search:**\n');
+          onToken('**Search performed** (detailed query information not available)\n');
+          if (Array.isArray(searchInfo)) {
+            searchInfo.slice(0, 3).forEach((result: any, index: number) => {
+              const title = result.title || result.name || 'Untitled';
+              const url = result.url || result.link || '#';
+              onToken(`- ${index + 1}. [${title}](${url})\n`);
+            });
+          }
+          onToken('\n');
+        }
       }
     }
 
