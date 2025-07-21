@@ -127,6 +127,14 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle Ctrl/Cmd + Enter for all templates (with or without variables)
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      handleSubmit(e);
+      return;
+    }
+    
+    // Only handle navigation if template has variables
     if (!template?.variables) return;
     
     const totalFields = template.variables?.length || 0;
@@ -150,12 +158,6 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
         break;
       case 'Escape':
         onCancel();
-        break;
-      case 'Enter':
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          handleSubmit(e);
-        }
         break;
     }
   };
@@ -221,7 +223,7 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
         <div className="variable-input-modal-header">
           <h2 id="variable-modal-title">Configure Template Variables</h2>
           <p id="variable-modal-description">
-            Customize the variables for "{template.title}" template
+            Customize the variables for "{template.title}" template. Use Ctrl+Enter to quickly insert.
           </p>
         </div>
 
@@ -341,7 +343,7 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
               className="confirm-button"
               disabled={hasErrors}
             >
-              Insert Template
+              Insert Template (Ctrl+Enter)
             </button>
           </div>
         </form>
