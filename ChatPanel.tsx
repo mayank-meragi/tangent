@@ -204,6 +204,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const abortControllerRef = useRef<AbortController | null>(null);
   // State for which view is active
   const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
+  // Smart scrolling state
+  const [userHasScrolledUp, setUserHasScrolledUp] = React.useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Update thinking enabled state when model changes
   useEffect(() => {
@@ -268,6 +271,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   useEffect(() => {
     currentMessagesRef.current = messages;
   }, [messages]);
+
+  // Smart scrolling: detect if user has scrolled up
+  useEffect(() => {
+    const messagesContainer = messagesContainerRef.current;
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px threshold
+      setUserHasScrolledUp(!isAtBottom);
+    };
+
+    messagesContainer.addEventListener('scroll', handleScroll);
+    return () => messagesContainer.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Initialize template service
   useEffect(() => {
@@ -650,6 +668,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     loadMessages(conversation.messages);
     setCurrentConversation(conversation);
     setActiveView('chat'); // Switch to chat view after loading conversation
+    // Reset scroll state when loading conversation
+    setUserHasScrolledUp(false);
   };
 
   // Auto-save conversation when messages change
@@ -1103,9 +1123,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     }
   };
 
+  // Smart auto-scrolling: only scroll to bottom if streaming or user is at bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Only auto-scroll if:
+    // 1. We're streaming (new content is being added)
+    // 2. OR user hasn't scrolled up (they're at the bottom)
+    if (isStreaming || !userHasScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isStreaming, userHasScrolledUp]);
 
   // Add keyboard shortcuts for text selection and copying
   useEffect(() => {
@@ -1168,6 +1194,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setSelectedFileIndex(0);
     setSelectedTemplateIndex(0);
     setActiveView('chat');
+    // Reset scroll state for new chat
+    setUserHasScrolledUp(false);
   };
 
   return (
@@ -1201,7 +1229,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       {activeView === 'chat' && (
         <>
           {/* Messages */}
-          <div className="tangent-chat-panel-messages">
+          <div className="tangent-chat-panel-messages" ref={messagesContainerRef}>
 
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {

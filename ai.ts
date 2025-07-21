@@ -5,7 +5,7 @@ import {
   ToolConfirmationResult,
 } from './tools';
 import { MemoryService } from './memoryService';
-import { getObsidianTasksGlobalFilter } from './tools/dataviewTasks';
+
 
 // Message type for conversation history
 export interface ConversationMessage {
@@ -219,344 +219,196 @@ export async function streamAIResponse({
       console.log('[AI DEBUG] Request cancelled before API call');
       return;
     }
-
-    // Send request with tools and thinking config
-    const response = await genAI.models.generateContentStream({
-      model: modelId,
-      contents: geminiContents,
-      config: config
-    });
     
-    // Collect the full response from the stream
-    let fullResponse: any = null;
-    let hasStreamedContent = false; // Track if we've streamed any content
+    // Simplified AI calling loop - inspired by user's pseudocode
+    const currentMessages = [...geminiContents];
+    const maxIterations = 10; // Prevent infinite loops
+    let iteration = 0;
     
-    for await (const chunk of response) {
-      // Check abort signal in each iteration
+    while (iteration < maxIterations) {
+      iteration++;
+      console.log(`[AI DEBUG] AI call iteration ${iteration}`);
+      
+      // Check abort signal before each AI call
       if (abortController?.signal.aborted) {
-        console.log('[AI DEBUG] Streaming cancelled by user');
+        console.log('[AI DEBUG] Request cancelled before AI call');
         return;
       }
-
-      fullResponse = chunk; // Always update to the latest chunk
-
-      console.log('[AI DEBUG] Streaming response:', chunk);
-      // Collect text content from streaming chunks
-      // Skip streaming if there are function calls, as tool execution will provide the final response
-      if (chunk.candidates && chunk.candidates[0]?.content?.parts && !chunk.functionCalls) {
-        onToken(chunk);
-        hasStreamedContent = true; // Mark that we've streamed content
-      }
-    }
-    
-    console.log('[AI DEBUG] Full response:', fullResponse);
-
-    // Check abort signal before processing response
-    if (abortController?.signal.aborted) {
-      console.log('[AI DEBUG] Request cancelled before processing response');
-      return;
-    }
-
-    // Process grounding metadata if web search was used
-    if (webSearchEnabled && fullResponse?.candidates?.[0]?.groundingMetadata) {
-      const metadata = fullResponse.candidates[0].groundingMetadata;
-      console.log('[AI DEBUG] Grounding metadata found:', metadata);
-      console.log('[AI DEBUG] Grounding metadata keys:', Object.keys(metadata));
-      console.log('[AI DEBUG] Full grounding metadata structure:', JSON.stringify(metadata, null, 2));
       
-      if (metadata.webSearchQueries && metadata.webSearchQueries.length > 0) {
-        console.log('[AI DEBUG] Web search queries structure:', metadata.webSearchQueries);
-        
-        // Add search context to response
-        if (onToken) {
-          onToken('\n\n**🌐 Sources from web search:**\n');
-          metadata.webSearchQueries.forEach((query: any, index: number) => {
-            // Check abort signal during processing
-            if (abortController?.signal.aborted) {
-              return;
-            }
-
-            console.log(`[AI DEBUG] Processing query ${index + 1}:`, query);
-            console.log(`[AI DEBUG] Query type:`, typeof query);
-            
-            // Handle both string queries and object queries
-            let searchQuery: string;
-            if (typeof query === 'string') {
-              // Query is a string directly
-              searchQuery = query;
-            } else if (typeof query === 'object' && query !== null) {
-              // Query is an object, try different property names
-              searchQuery = query.searchQuery || query.query || query.search || query.text || 'Unknown query';
-            } else {
-              searchQuery = 'Unknown query';
-            }
-            
-            console.log(`[AI DEBUG] Extracted search query: "${searchQuery}"`);
-            
-            onToken(`**Query ${index + 1}:** ${searchQuery}\n`);
-            
-            // Look for search results in the grounding chunks
-            if (metadata.groundingChunks && metadata.groundingChunks.length > 0) {
-              onToken(`**Results:** ${metadata.groundingChunks.length} sources found\n`);
-              metadata.groundingChunks.slice(0, 3).forEach((chunk: any, resultIndex: number) => {
-                const title = chunk.web?.title || 'Untitled';
-                const url = chunk.web?.uri || '#';
-                onToken(`- ${resultIndex + 1}. [${title}](${url})\n`);
-              });
-            }
-            onToken('\n');
-          });
-        }
-      } else {
-        console.log('[AI DEBUG] No web search queries found in grounding metadata');
-        
-        // Check if there are other properties that might contain search information
-        console.log('[AI DEBUG] Available metadata properties:', Object.keys(metadata));
-        
-        // Try to find any search-related information in the metadata
-        const searchInfo = metadata.searchResults || metadata.results || metadata.sources || metadata.citations;
-        if (searchInfo && onToken) {
-          console.log('[AI DEBUG] Found alternative search info:', searchInfo);
-          onToken('\n\n**🌐 Sources from web search:**\n');
-          onToken('**Search performed** (detailed query information not available)\n');
-          if (Array.isArray(searchInfo)) {
-            searchInfo.slice(0, 3).forEach((result: any, index: number) => {
-              const title = result.title || result.name || 'Untitled';
-              const url = result.url || result.link || '#';
-              onToken(`- ${index + 1}. [${title}](${url})\n`);
-            });
-          }
-          onToken('\n');
-        }
-      }
-    }
-
-    // Debug log: print all tool calls decided by LLM
-    if (fullResponse?.functionCalls) {
-      console.log('[AI DEBUG] Tool calls decided by LLM:', fullResponse.functionCalls);
-    }
-    
-    // Handle thinking tokens if present
-    if (fullResponse?.usageMetadata?.thoughtsTokenCount && fullResponse.usageMetadata.thoughtsTokenCount > 0) {
+      // Call AI with current messages
+      console.log(`[AI DEBUG] Sending ${currentMessages.length} messages to AI in iteration ${iteration}:`, currentMessages.map(m => ({ role: m.role, parts: m.parts.length })));
+      const response = await genAI.models.generateContentStream({
+        model: modelId,
+        contents: currentMessages,
+        config: config
+      });
       
+      // Collect the full response from the stream
+      let fullResponse: any = null;
+      let hasStreamedContent = false;
       
-      // Extract thinking content if available
-      let foundThinkingContent = false;
-      if (fullResponse.candidates && fullResponse.candidates[0]?.content?.parts) {
-        for (const part of fullResponse.candidates[0].content.parts) {
-          // Check if this part is marked as thinking content
-          if ((part as any).thought === true && part.text && onThinking) {
-            
-            onThinking(part.text);
-            foundThinkingContent = true;
-          }
-        }
-      }
-      
-      // If no specific thinking content found but we have thinking tokens, show a generic thinking message
-      if (onThinking && !foundThinkingContent) {
-        onThinking(`🧠 The model used ${fullResponse.usageMetadata.thoughtsTokenCount} thinking tokens to process this request.`);
-      }
-    }
-    
-    // Check if there are function calls
-    if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {
-      const hasToolCalls = true;
-      
-      // Process each function call
-      for (const functionCall of fullResponse.functionCalls) {
-        // Check abort signal before processing each tool call
+      for await (const chunk of response) {
+        // Check abort signal in each iteration
         if (abortController?.signal.aborted) {
-          console.log('[AI DEBUG] Request cancelled during tool processing');
+          console.log('[AI DEBUG] Streaming cancelled by user');
           return;
         }
 
-        const { name, args } = functionCall;
-        const normalizedArgs = normalizeDateRangeArgs(args || {});
+        fullResponse = chunk; // Always update to the latest chunk
 
-        // Force all create-task operations to use assistant_tasks.md
-        if (name === 'writeDataviewTasks' && normalizedArgs.operation === 'create') {
-          // Use provided file if specified, otherwise default to assistant_tasks.md
-          if (!normalizedArgs.file) {
-            normalizedArgs.file = 'assistant_tasks.md';
-          }
-          
-          // Add global filter tags to new tasks
-          const globalFilterTags = await extractGlobalFilterTags(app);
-          if (globalFilterTags.length > 0) {
-            // Handle both single task and bulk task creation
-            if (normalizedArgs.task) {
-              // Single task
-              if (!normalizedArgs.task.tags) {
-                normalizedArgs.task.tags = [];
-              }
-              // Add global filter tags that aren't already present
-              for (const tag of globalFilterTags) {
-                if (!normalizedArgs.task.tags.includes(tag)) {
-                  normalizedArgs.task.tags.push(tag);
-                }
-              }
-            } else if (normalizedArgs.tasks && Array.isArray(normalizedArgs.tasks)) {
-              // Bulk tasks
-              for (const task of normalizedArgs.tasks) {
-                if (!task.tags) {
-                  task.tags = [];
-                }
-                // Add global filter tags that aren't already present
-                for (const tag of globalFilterTags) {
-                  if (!task.tags.includes(tag)) {
-                    task.tags.push(tag);
-                  }
-                }
-              }
-            }
-          }
+        console.log('[AI DEBUG] Streaming response:', chunk);
+        // Stream text content if no function calls
+        if (chunk.candidates && chunk.candidates[0]?.content?.parts && !chunk.functionCalls) {
+          onToken(chunk);
+          hasStreamedContent = true;
         }
+      }
+      
+      console.log('[AI DEBUG] Full response:', fullResponse);
+      console.log('[AI DEBUG] Full response structure:', {
+        hasFunctionCalls: !!fullResponse?.functionCalls,
+        functionCallsLength: fullResponse?.functionCalls?.length || 0,
+        hasCandidates: !!fullResponse?.candidates,
+        candidatesLength: fullResponse?.candidates?.length || 0,
+        hasContent: !!fullResponse?.candidates?.[0]?.content,
+        hasParts: !!fullResponse?.candidates?.[0]?.content?.parts,
+        partsLength: fullResponse?.candidates?.[0]?.content?.parts?.length || 0
+      });
+
+      // Check abort signal before processing response
+      if (abortController?.signal.aborted) {
+        console.log('[AI DEBUG] Request cancelled before processing response');
+        return;
+      }
+      
+      // Check if there are function calls
+      if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {
+        console.log(`[AI DEBUG] Found ${fullResponse.functionCalls.length} function calls`);
         
-        
-        if (onToolCall && name) {
-          onToolCall(name, normalizedArgs);
-        }
-        
-        // Check if tool requires confirmation
-        if (!name) continue; // Skip if no tool name
-        
-        const requiresConfirmation = toolRequiresConfirmation[name] || false;
-        
-        if (requiresConfirmation && onToolConfirmationNeeded) {
-          // Create pending tool call
-          const pendingTool: PendingToolCall = {
-            id: `${name}-${Date.now()}`,
-            name: name,
-            args: normalizedArgs,
-            requiresConfirmation: true
-          };
+        // Execute each function call
+        for (const functionCall of fullResponse.functionCalls) {
+          const { name, args } = functionCall;
+          const normalizedArgs = normalizeDateRangeArgs(args || {});
           
+          console.log(`[AI DEBUG] Executing function: ${name} with args:`, normalizedArgs);
           
-          
-          // Request confirmation from user
-          const confirmationResult = await onToolConfirmationNeeded(pendingTool);
-          
-          // Check abort signal after confirmation
-          if (abortController?.signal.aborted) {
-            console.log('[AI DEBUG] Request cancelled after tool confirmation');
-            return;
+          if (onToolCall && name) {
+            onToolCall(name, normalizedArgs);
           }
           
-          if (!confirmationResult.approved) {
-            
-            if (onToken) onToken(`[Tool execution cancelled by user: ${name}]`);
-            continue; // Skip this tool execution
-          }
+          // Check if tool requires confirmation
+          if (!name) continue;
           
+          const requiresConfirmation = toolRequiresConfirmation[name] || false;
           
-        }
-        
-        // Execute the tool via unifiedToolManager
-        console.log(`[AI DEBUG] Looking for tool: ${name} in toolMap:`, Object.keys(toolMap));
-        if (name && toolMap[name]) {
-          try {
-            console.log(`[AI DEBUG] Executing tool: ${name} with args:`, normalizedArgs);
-            const toolResult = await unifiedToolManager.callTool(toolMap[name].id, normalizedArgs || {});
-            console.log(`[AI DEBUG] Tool result for ${name}:`, toolResult);
-            
-            // Check abort signal after tool execution
-            if (abortController?.signal.aborted) {
-              console.log('[AI DEBUG] Request cancelled after tool execution');
-              return;
-            }
-            
-            if (onToolResult) {
-              onToolResult(name, toolResult);
-            }
-            
-            // Create function response
-            const responseContent = toolResult.type === 'success' ? toolResult.data : toolResult.error;
-            console.log(`[AI DEBUG] Tool ${name} response content:`, {
-              type: toolResult.type,
-              data: toolResult.data,
-              error: toolResult.error,
-              finalContent: responseContent
-            });
-            
-            const functionResponse = {
+          if (requiresConfirmation && onToolConfirmationNeeded) {
+            const pendingTool: PendingToolCall = {
+              id: `${name}-${Date.now()}`,
               name: name,
-              response: {
-                name: name,
-                content: responseContent
-              }
+              args: normalizedArgs,
+              requiresConfirmation: true
             };
             
-            // Build follow-up conversation with tool result
-            const followUpContents = [
-              ...geminiContents,
-              { role: 'model', parts: [{ functionCall: functionCall }] },
-              { role: 'user', parts: [{ functionResponse: functionResponse }] }
-            ];
+            const confirmationResult = await onToolConfirmationNeeded(pendingTool);
             
-            console.log(`[AI DEBUG] Follow-up conversation for tool ${name}:`, {
-              originalMessages: geminiContents.length,
-              functionCall: functionCall,
-              functionResponse: functionResponse,
-              totalMessages: followUpContents.length
-            });
-            
-            
-            
-            // Send the tool result back to the model
-            console.log(`[AI DEBUG] Sending follow-up request for tool ${name} with result:`, functionResponse);
-            
-            // Check abort signal before nested call
             if (abortController?.signal.aborted) {
-              console.log('[AI DEBUG] Request cancelled before nested function call');
+              console.log('[AI DEBUG] Request cancelled after tool confirmation');
               return;
             }
             
-            // Handle nested function calls with abort controller
-            await handleNestedFunctionCalls(
-              [functionCall],
-              followUpContents,
-              toolMap,
-              unifiedToolManager,
-              genAI,
-              modelId,
-              config,
-              onToken,
-              onToolCall,
-              onToolResult,
-              0,
-              maxNestedCalls,
-              abortController // Pass abort controller to nested calls
-            );
-            
-          } catch (error) {
-            console.error('[AI DEBUG] Tool execution error:', error);
-            if (onToken) onToken(`[Tool Error: ${error}]`);
+            if (!confirmationResult.approved) {
+              if (onToken) onToken(`[Tool execution cancelled by user: ${name}]`);
+              continue;
+            }
           }
-        } else {
-          console.error('[AI DEBUG] Unknown tool:', name);
-          if (onToken) onToken(`[Unknown tool: ${name}]`);
+          
+          // Execute the tool
+          if (name && toolMap[name]) {
+            try {
+              const toolResult = await unifiedToolManager.callTool(toolMap[name].id, normalizedArgs || {});
+              console.log(`[AI DEBUG] Tool result for ${name}:`, toolResult);
+              
+              if (abortController?.signal.aborted) {
+                console.log('[AI DEBUG] Request cancelled after tool execution');
+                return;
+              }
+              
+              if (onToolResult) {
+                onToolResult(name, toolResult);
+              }
+              
+              // Create function response
+              const responseContent = toolResult.type === 'success' ? toolResult.data : toolResult.error;
+              const functionResponse = {
+                name: name,
+                response: {
+                  name: name,
+                  content: responseContent
+                }
+              };
+              
+              // Add function call and response to messages for next iteration
+              currentMessages.push(
+                { role: 'model', parts: [{ functionCall: functionCall }] },
+                { role: 'user', parts: [{ functionResponse: functionResponse }] }
+              );
+              
+              console.log(`[AI DEBUG] Added function result to messages for ${name}`);
+              console.log(`[AI DEBUG] Updated currentMessages length: ${currentMessages.length}`);
+              console.log(`[AI DEBUG] Last two messages added:`, currentMessages.slice(-2));
+              
+            } catch (error) {
+              console.error('[AI DEBUG] Tool execution error:', error);
+              if (onToken) onToken(`[Tool Error: ${error}]`);
+            }
+          } else {
+            console.error('[AI DEBUG] Unknown tool:', name);
+            if (onToken) onToken(`[Unknown tool: ${name}]`);
+          }
         }
+        
+        // Continue to next iteration to let AI respond to tool results
+        continue;
+      } else {
+        // No function calls, AI has finished responding
+        console.log('[AI DEBUG] No function calls found, AI response complete');
+        
+        // If we haven't streamed content, process the final response
+        if (!hasStreamedContent && fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
+          const responseParts = fullResponse.candidates[0].content.parts
+            .filter((part: any) => (part as any).thought !== true && part.text)
+            .map((part: any) => part.text)
+            .join('');
+          
+          if (responseParts) {
+            console.log(`[AI DEBUG] Processing final response parts: "${responseParts}"`);
+            onToken(responseParts);
+          }
+        } else if (!hasStreamedContent && fullResponse?.text) {
+          console.log(`[AI DEBUG] Processing final response text: "${fullResponse.text}"`);
+          onToken(fullResponse.text);
+        } else if (!hasStreamedContent && fullResponse === null) {
+          console.log('[AI DEBUG] Full response is null, this might indicate an issue with the AI call');
+          if (onToken) onToken('[AI response was empty or null]');
+        } else if (hasStreamedContent) {
+          console.log('[AI DEBUG] Content was already streamed, no need to process final response');
+        } else {
+          console.log('[AI DEBUG] No response content found to process');
+        }
+        
+        // Break out of the loop - AI is done
+        break;
       }
-      
-      if (hasToolCalls && onToolsComplete) {
-        onToolsComplete('Tools execution completed');
-      }
-    } else if (!hasStreamedContent && fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
-      // Only process final response if we haven't streamed content already
-      // Extract only non-thinking parts for the regular response
-      const responseParts = fullResponse.candidates[0].content.parts
-        .filter((part: any) => (part as any).thought !== true && part.text)
-        .map((part: any) => part.text)
-        .join('');
-      
-      if (responseParts) {
-        onToken(responseParts);
-      }
-    } else if (!hasStreamedContent && fullResponse?.text) {
-      // Only process fallback text if we haven't streamed content already
-      // Fallback: Direct text response
-      onToken(fullResponse.text);
+    }
+    
+    if (iteration >= maxIterations) {
+      console.log('[AI DEBUG] Maximum iterations reached, stopping');
+      if (onToken) onToken('[Maximum AI iterations reached]');
+    }
+
+    // Process grounding metadata if web search was used (moved from old code)
+    if (webSearchEnabled) {
+      console.log('[AI DEBUG] Web search was enabled, but grounding metadata processing moved to individual iterations');
     }
     
   } catch (error) {
@@ -607,149 +459,3 @@ function normalizeDateRangeArgs(args: any): any {
   }
   return args;
 }
-
-// Helper function to extract tags from global filter
-async function extractGlobalFilterTags(app: App): Promise<string[]> {
-  try {
-    const globalFilter = await getObsidianTasksGlobalFilter(app);
-    if (!globalFilter) return [];
-    
-    // Extract tag filters from global filter
-    const tagMatches = globalFilter.match(/#(\w+)/g);
-    if (tagMatches) {
-      return tagMatches.map((tag: string) => tag.substring(1)); // Remove #
-    }
-    
-    return [];
-  } catch (error) {
-    console.error('[AI DEBUG] Error extracting global filter tags:', error);
-    return [];
-  }
-}
-
-// Helper function to handle nested function calls
-async function handleNestedFunctionCalls(
-  functionCallParts: any[],
-  followUpContents: any[],
-  toolMap: Record<string, any>,
-  unifiedToolManager: any,
-  genAI: any,
-  modelId: string,
-  config: any,
-  onToken: (token: any) => void,
-  onToolCall?: (toolName: string, args: any) => void,
-  onToolResult?: (toolName: string, result: any) => void,
-  depth = 0,
-  maxDepth = 3,
-  abortController?: AbortController
-): Promise<void> {
-  if (depth >= maxDepth) {
-    console.log(`[AI DEBUG] Maximum nested call depth (${maxDepth}) reached, stopping recursion`);
-    return;
-  }
-  
-  for (const functionCallPart of functionCallParts) {
-    // Check abort signal before processing each nested function call
-    if (abortController?.signal.aborted) {
-      console.log('[AI DEBUG] Request cancelled during nested function call processing');
-      return;
-    }
-
-    const nestedFunctionCall = functionCallPart.functionCall;
-    if (!nestedFunctionCall) continue;
-    
-    const { name: nestedName, args: nestedArgs } = nestedFunctionCall;
-    
-    console.log(`[AI DEBUG] Processing nested function call (depth ${depth}): ${nestedName} with args:`, nestedArgs);
-    
-    if (onToolCall && nestedName) {
-      onToolCall(nestedName, nestedArgs || {});
-    }
-    
-    // Execute the nested tool
-    if (nestedName && toolMap[nestedName]) {
-      try {
-        console.log(`[AI DEBUG] Executing nested tool (depth ${depth}): ${nestedName} with args:`, nestedArgs);
-        const nestedToolResult = await unifiedToolManager.callTool(toolMap[nestedName].id, nestedArgs || {});
-        console.log(`[AI DEBUG] Nested tool result for ${nestedName}:`, nestedToolResult);
-        
-        // Check abort signal after nested tool execution
-        if (abortController?.signal.aborted) {
-          console.log('[AI DEBUG] Request cancelled after nested tool execution');
-          return;
-        }
-
-        if (onToolResult) {
-          onToolResult(nestedName, nestedToolResult);
-        }
-        
-        // Create nested function response
-        const nestedResponseContent = nestedToolResult.type === 'success' ? nestedToolResult.data : nestedToolResult.error;
-        const nestedFunctionResponse = {
-          name: nestedName,
-          response: {
-            name: nestedName,
-            content: nestedResponseContent
-          }
-        };
-        
-        // Build nested follow-up conversation
-        const nestedFollowUpContents = [
-          ...followUpContents,
-          { role: 'model', parts: [{ functionCall: nestedFunctionCall }] },
-          { role: 'user', parts: [{ functionResponse: nestedFunctionResponse }] }
-        ];
-        
-        console.log(`[AI DEBUG] Sending nested follow-up request for tool ${nestedName} (depth ${depth})`);
-        const nestedFollowUpResponse = await genAI.models.generateContent({
-          model: modelId,
-          contents: nestedFollowUpContents,
-          config: config
-        });
-        
-        // Process the nested follow-up response
-        if (nestedFollowUpResponse.candidates && nestedFollowUpResponse.candidates[0]?.content?.parts) {
-          const nestedTextParts = nestedFollowUpResponse.candidates[0].content.parts
-            .filter((part: any) => (part as any).thought !== true && part.text)
-            .map((part: any) => part.text);
-          
-          const nestedFunctionCallParts = nestedFollowUpResponse.candidates[0].content.parts
-            .filter((part: any) => part.functionCall);
-          
-          if (nestedTextParts.length > 0) {
-            const nestedResponseText = nestedTextParts.join('');
-            console.log(`[AI DEBUG] Calling onToken with nested response for tool ${nestedName}:`, nestedResponseText);
-            onToken(nestedResponseText);
-          } else if (nestedFunctionCallParts.length > 0) {
-            // Recursively handle further nested calls
-            await handleNestedFunctionCalls(
-              nestedFunctionCallParts,
-              nestedFollowUpContents,
-              toolMap,
-              unifiedToolManager,
-              genAI,
-              modelId,
-              config,
-              onToken,
-              onToolCall,
-              onToolResult,
-              depth + 1,
-              maxDepth,
-              abortController // Pass abort controller to nested calls
-            );
-          }
-        } else if (nestedFollowUpResponse.text) {
-          console.log(`[AI DEBUG] Calling onToken with nested direct text for tool ${nestedName}:`, nestedFollowUpResponse.text);
-          onToken(nestedFollowUpResponse.text);
-        }
-        
-      } catch (error) {
-        console.error(`[AI DEBUG] Nested tool execution error:`, error);
-        if (onToken) onToken(`[Nested Tool Error: ${error}]`);
-      }
-    } else {
-      console.error(`[AI DEBUG] Unknown nested tool:`, nestedName);
-      if (onToken) onToken(`[Unknown nested tool: ${nestedName}]`);
-    }
-  }
-} 
