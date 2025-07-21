@@ -7,6 +7,7 @@ import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
 import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
 import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
 import { TemplateService } from './templateService';
+import { createTagSuggestCommand } from './commands';
 
 // Remember to rename these classes and interfaces!
 
@@ -129,6 +130,19 @@ export default class MyPlugin extends Plugin {
 			name: 'Debug Dropdown UI',
 			callback: () => {
 				this.debugDropdownUI();
+			}
+		});
+
+		// Add AI Tag Suggest command
+		this.addCommand({
+			id: 'ai-tag-suggest',
+			name: 'AI Tag Suggest',
+			callback: async () => {
+				const tagSuggestCommand = createTagSuggestCommand({
+					app: this.app,
+					geminiApiKey: this.settings.geminiApiKey
+				});
+				await tagSuggestCommand.execute();
 			}
 		});
 
