@@ -1994,3 +1994,130 @@ textarea:focus {
     gap: 8px;
   }
 }
+
+/* Tag Suggest Loading Modal Styles */
+.tag-suggest-loading-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.loading-spinner {
+  margin-bottom: 20px;
+  color: var(--interactive-accent);
+}
+
+.loading-spinner svg {
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-normal);
+  margin-bottom: 8px;
+}
+
+.loading-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Tag Selection Modal Styles */
+.tag-selection-modal {
+  padding: 20px;
+}
+
+.tag-selection-header {
+  margin-bottom: 20px;
+}
+
+.tag-selection-header h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.tag-selection-reasoning {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  padding: 12px;
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.tag-selection-list {
+  margin-bottom: 24px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tag-selection-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tag-selection-item:last-child {
+  border-bottom: none;
+}
+
+.tag-selection-item input[type="checkbox"] {
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.tag-selection-item label {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-normal);
+  flex: 1;
+}
+
+.tag-selection-item label:hover {
+  color: var(--interactive-accent);
+}
+
+.tag-selection-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.tag-selection-actions button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.tag-selection-actions button.mod-warning {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.tag-selection-actions button.mod-warning:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.tag-selection-actions button.mod-cta {
+  background-color: var(--interactive-accent);
+  border: 1px solid var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: 500;
+}
+
+.tag-selection-actions button.mod-cta:hover {
+  background-color: var(--interactive-accent-hover);
+}
