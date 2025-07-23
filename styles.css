@@ -2121,3 +2121,33 @@ textarea:focus {
 .tag-selection-actions button.mod-cta:hover {
   background-color: var(--interactive-accent-hover);
 }
+
+/* Template Settings Preview Styles */
+.template-settings-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.settings-icon {
+  opacity: 0.6;
+}
+
+.settings-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  font-size: 10px;
+}

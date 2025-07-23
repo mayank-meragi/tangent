@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ConversationTemplate } from '../../tools/types';
+import { ConversationTemplate, TemplateSettings } from '../../tools/types';
+import { MODEL_CONFIGS } from '../../modelConfigs';
 
 interface VariableInputModalProps {
   isVisible: boolean;
   template: ConversationTemplate | null;
-  onConfirm: (variables: Record<string, any>) => void;
+  onConfirm: (variables: Record<string, any>, settings: TemplateSettings) => void;
   onCancel: () => void;
 }
 
@@ -26,20 +27,35 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [preview, setPreview] = useState<string>('');
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [settings, setSettings] = useState<TemplateSettings>({
+    thinkingEnabled: false,
+    webSearchEnabled: false
+  });
   const modalRef = useRef<HTMLDivElement>(null);
   const inputRefs = useRef<(HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)[]>([]);
 
   // Initialize form data with default values when template changes
   useEffect(() => {
-    if (template && template.variables) {
-      const initialData: VariableFormData = {};
-      template.variables.forEach(variable => {
-        initialData[variable.name] = variable.default !== undefined ? variable.default : '';
+    if (template) {
+      // Initialize variables
+      if (template.variables) {
+        const initialData: VariableFormData = {};
+        template.variables.forEach(variable => {
+          initialData[variable.name] = variable.default !== undefined ? variable.default : '';
+        });
+        setFormData(initialData);
+        updatePreview(template.content, initialData);
+      }
+      
+      // Initialize settings from template or defaults
+      setSettings({
+        thinkingEnabled: false,
+        webSearchEnabled: false,
+        ...template.settings
       });
-      setFormData(initialData);
+      
       setErrors({});
       setFocusedIndex(0);
-      updatePreview(template.content, initialData);
     }
   }, [template]);
 
@@ -121,7 +137,7 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
     e.preventDefault();
     
     if (validateForm()) {
-      onConfirm(formData);
+      onConfirm(formData, settings);
     }
   };
 
@@ -329,6 +345,47 @@ export const VariableInputModal: React.FC<VariableInputModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Template Settings Section */}
+          <div className="template-settings-section">
+            <h4>AI Settings</h4>
+            <p className="settings-description">
+              Configure AI behavior for this template. These settings will be applied when the template is inserted.
+            </p>
+            
+            <div className="settings-controls">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={settings.thinkingEnabled ?? false}
+                  onChange={(e) => setSettings({...settings, thinkingEnabled: e.target.checked})}
+                />
+                Enable thinking
+              </label>
+              
+              <label>
+                <input
+                  type="checkbox"
+                  checked={settings.webSearchEnabled ?? false}
+                  onChange={(e) => setSettings({...settings, webSearchEnabled: e.target.checked})}
+                />
+                Enable web search
+              </label>
+              
+              <label>
+                Model:
+                <select
+                  value={settings.modelId ?? ''}
+                  onChange={(e) => setSettings({...settings, modelId: e.target.value})}
+                >
+                  <option value="">Use current model</option>
+                  {MODEL_CONFIGS.map((model) => (
+                    <option key={model.id} value={model.id}>{model.label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
 
           <div className="variable-input-actions">
             <button

@@ -4,7 +4,8 @@ import {
   TemplateCategory, 
   TemplateSearchResult, 
   TemplateValidationResult,
-  TemplateVariable
+  TemplateVariable,
+  TemplateSettings
 } from './tools/types';
 import { TemplateSearchEngine } from './tools/templateSearchEngine';
 import * as path from 'path'; // Added for path.basename
@@ -297,6 +298,7 @@ export class TemplateService {
         version: frontmatter.version,
         aliases: frontmatter.aliases,
         variables: this.convertVariablesToArray(frontmatter.variables),
+        settings: this.parseSettingsFromFrontmatter(frontmatter),
         filePath: file.path
       };
 
@@ -340,6 +342,40 @@ export class TemplateService {
     }
     
     return [];
+  }
+
+  /**
+   * Parse settings from frontmatter
+   */
+  private parseSettingsFromFrontmatter(frontmatter: any): Partial<TemplateSettings> {
+    const settings: Partial<TemplateSettings> = {};
+
+    if (frontmatter.settings) {
+      const rawSettings = frontmatter.settings;
+      
+      // Handle thinking setting (support both 'thinking' and 'thinkingEnabled')
+      if (rawSettings.thinkingEnabled !== undefined) {
+        settings.thinkingEnabled = Boolean(rawSettings.thinkingEnabled);
+      } else if (rawSettings.thinking !== undefined) {
+        settings.thinkingEnabled = Boolean(rawSettings.thinking);
+      }
+      
+      // Handle web search setting (support both 'webSearch' and 'webSearchEnabled')
+      if (rawSettings.webSearchEnabled !== undefined) {
+        settings.webSearchEnabled = Boolean(rawSettings.webSearchEnabled);
+      } else if (rawSettings.webSearch !== undefined) {
+        settings.webSearchEnabled = Boolean(rawSettings.webSearch);
+      }
+      
+      // Handle model setting (support both 'model' and 'modelId')
+      if (rawSettings.modelId !== undefined) {
+        settings.modelId = String(rawSettings.modelId);
+      } else if (rawSettings.model !== undefined) {
+        settings.modelId = String(rawSettings.model);
+      }
+    }
+
+    return settings;
   }
 
   /**
@@ -544,6 +580,14 @@ export class TemplateService {
     if (template.version) frontmatter.version = template.version;
     if (template.aliases) frontmatter.aliases = template.aliases;
     if (template.variables) frontmatter.variables = template.variables;
+    if (template.settings) {
+      // Convert settings to frontmatter format (using shorter property names)
+      frontmatter.settings = {
+        thinking: template.settings.thinkingEnabled,
+        webSearch: template.settings.webSearchEnabled,
+        model: template.settings.modelId
+      };
+    }
 
     const frontmatterString = Object.entries(frontmatter)
       .map(([key, value]) => {

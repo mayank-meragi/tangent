@@ -15,8 +15,9 @@ import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
 import UserMessage from './src/components/UserMessage';
 import { UploadedFile, fileUploadService } from './FileUploadService';
-import { DropdownItem, ConversationTemplate } from './tools/types';
+import { DropdownItem, ConversationTemplate, TemplateSettings } from './tools/types';
 import { VariableInputModal } from './src/components/VariableInputModal';
+import TemplateSettingsPreview from './src/components/TemplateSettingsPreview';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -323,7 +324,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           id: template.id,
           title: template.title,
           contentLength: template.content?.length,
-          variablesCount: template.variables?.length
+          variablesCount: template.variables?.length,
+          settings: template.settings
         });
         
         return {
@@ -385,6 +387,33 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
 
+
+  // Custom item renderer for template dropdown items
+  const templateItemRenderer = (item: DropdownItem, isSelected: boolean, isHighlighted: boolean) => {
+    const template = item.metadata?.template as ConversationTemplate;
+    
+    return (
+      <div className="dropdown-item-content">
+        {item.icon && (
+          <LucidIcon 
+            name={item.icon} 
+            size={16} 
+            className="dropdown-item-icon"
+          />
+        )}
+        <div className="dropdown-item-text">
+          <div className="dropdown-item-title">{item.title}</div>
+          {item.description && (
+            <div className="dropdown-item-description">{item.description}</div>
+          )}
+          <TemplateSettingsPreview settings={template?.settings} />
+        </div>
+        {item.category && (
+          <div className="dropdown-item-category">{item.category}</div>
+        )}
+      </div>
+    );
+  };
 
   // Function to handle template selection
   const handleTemplateSelect = async (template: ConversationTemplate) => {
@@ -473,8 +502,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   // Function to handle variable input confirmation
-  const handleVariableInputConfirm = (variables: Record<string, any>) => {
+  const handleVariableInputConfirm = (variables: Record<string, any>, settings: TemplateSettings) => {
     if (selectedTemplate) {
+      // Apply settings to chat state
+      if (settings.thinkingEnabled !== undefined) {
+        setThinkingEnabled(settings.thinkingEnabled);
+      }
+      
+      if (settings.webSearchEnabled !== undefined) {
+        setWebSearchEnabled(settings.webSearchEnabled);
+      }
+      
+      if (settings.modelId !== undefined) {
+        const newModel = MODEL_CONFIGS.find(m => m.id === settings.modelId);
+        if (newModel) {
+          setSelectedModel(newModel);
+        }
+      }
+      
       insertTemplateWithVariables(selectedTemplate, variables);
     }
     setShowVariableModal(false);
@@ -1323,6 +1368,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           handleTemplateSelect={handleTemplateSelect}
           isLoadingTemplates={isLoadingTemplates}
           templateError={templateError}
+          templateItemRenderer={templateItemRenderer}
           // Web search props
           webSearchEnabled={webSearchEnabled}
           setWebSearchEnabled={setWebSearchEnabled}

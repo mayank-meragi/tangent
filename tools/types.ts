@@ -55,6 +55,7 @@ export interface ConversationTemplate {
   version?: string;
   aliases?: string[];
   variables?: TemplateVariable[];
+  settings?: TemplateSettings;    // Template settings for AI behavior
   filePath?: string; // Path to the markdown file for user templates
 }
 
@@ -65,6 +66,12 @@ export interface TemplateVariable {
   description?: string;
   options?: string[]; // For select type
   required?: boolean;
+}
+
+export interface TemplateSettings {
+  thinkingEnabled?: boolean;      // Enable/disable thinking
+  webSearchEnabled?: boolean;     // Enable/disable web search
+  modelId?: string;              // Preferred model ID
 }
 
 export interface TemplateCategory {
@@ -118,6 +125,7 @@ export interface CreateTemplatePayload {
   description: string;
   tags?: string[];
   variables?: TemplateVariable[];
+  settings?: TemplateSettings;
   favorite?: boolean;
 }
 
@@ -128,5 +136,6 @@ export interface UpdateTemplatePayload {
   description?: string;
   tags?: string[];
   variables?: TemplateVariable[];
+  settings?: TemplateSettings;
   favorite?: boolean;
 } 
