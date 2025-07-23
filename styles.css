@@ -2266,8 +2266,8 @@ textarea:focus {
   justify-content: center;
   align-items: flex-start;
   padding: 20px;
-  min-height: 300px;
-  background: var(--background-primary);
+  margin: 20px 0;
+  background: transparent;
 }
 
 .tangent-persona-selector {

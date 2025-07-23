@@ -1341,6 +1341,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               />
             )}
 
+            {/* Persona Selector - integrated into messages flow */}
+            {isPersonaSelectorVisible && messages.length === 0 && (
+              <PersonaSelector
+                personas={personas}
+                selectedPersona={selectedPersona}
+                onPersonaSelect={handlePersonaSelect}
+                onPersonaClear={handlePersonaClear}
+              />
+            )}
+
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
             return (
@@ -1404,14 +1414,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Persona Selector */}
-      <PersonaSelector
-        personas={personas}
-        selectedPersona={selectedPersona}
-        onPersonaSelect={handlePersonaSelect}
-        onPersonaClear={handlePersonaClear}
-        isVisible={isPersonaSelectorVisible && messages.length === 0}
-      />
+
 
       {/* Input Area */}
       <div className="tangent-chat-panel-input-area">

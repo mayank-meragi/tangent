@@ -7,21 +7,15 @@ interface PersonaSelectorProps {
   selectedPersona: Persona | null;
   onPersonaSelect: (persona: Persona) => void;
   onPersonaClear: () => void;
-  isVisible: boolean;
 }
 
 const PersonaSelector: React.FC<PersonaSelectorProps> = ({ 
   personas, 
   selectedPersona, 
   onPersonaSelect, 
-  onPersonaClear,
-  isVisible 
+  onPersonaClear
 }) => {
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
-
-  if (!isVisible) {
-    return null;
-  }
 
   const handlePersonaClick = (persona: Persona) => {
     if (selectedPersona?.id === persona.id) {
