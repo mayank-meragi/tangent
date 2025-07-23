@@ -232,6 +232,551 @@ If your plugin does not need CSS, delete this file.
 	pointer-events: auto;
 }
 
+/* Spinner animation for cancel button */
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* Chat textarea styling */
+.tangent-chat-textarea {
+	width: 100%;
+	min-height: 44px;
+	max-height: 200px;
+	padding: 2px 8px;
+	border: none;
+	background-color: transparent;
+	color: var(--text-normal);
+	font-size: 14px;
+	outline: none;
+	resize: none;
+	overflow-y: auto;
+	border-radius: 8px;
+	box-sizing: border-box;
+	line-height: 1.4;
+}
+
+/* Remove focus borders from chat textarea */
+.tangent-chat-textarea:focus,
+.tangent-chat-textarea:focus-visible {
+	outline: none !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+/* Chat Input Container Styles */
+.tangent-dropdown-container {
+	position: absolute;
+	bottom: 100%;
+	left: 0;
+	right: 0;
+	z-index: 1000;
+	margin-bottom: 8px;
+}
+
+.tangent-loading-templates {
+	padding: 12px 16px;
+	background-color: var(--background-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text-muted);
+}
+
+.tangent-template-error {
+	padding: 12px 16px;
+	background-color: var(--color-red-bg);
+	border-radius: 8px;
+	border: 1px solid var(--color-red);
+	color: var(--color-red);
+	font-size: 14px;
+}
+
+.tangent-template-error-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.tangent-bottom-controls {
+	position: absolute;
+	bottom: 2px;
+	left: 8px;
+	right: 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	pointer-events: none;
+}
+
+.tangent-model-selection {
+	display: flex;
+	align-items: center;
+	pointer-events: auto;
+}
+
+.tangent-model-select {
+	background-color: transparent;
+	color: var(--text-faint);
+	border: none;
+	border-width: 0;
+	border-style: none;
+	box-shadow: none;
+	font-size: 12px;
+	outline: none;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	transition: color 0.2s ease;
+}
+
+.tangent-model-select:hover {
+	color: var(--text-muted);
+}
+
+.tangent-toggle-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	pointer-events: auto;
+}
+
+.tangent-action-buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	pointer-events: auto;
+}
+
+.tangent-cancel-edit-btn {
+	width: 32px;
+	height: 32px;
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	opacity: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 2px;
+}
+
+.tangent-cancel-edit-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.tangent-send-button-container {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+}
+
+.tangent-spinner-background {
+	position: absolute;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	border: 2px solid var(--background-modifier-border);
+	border-top: 2px solid var(--color-red);
+	animation: spin 1s linear infinite;
+	z-index: 1;
+	opacity: 0.8;
+}
+
+.tangent-send-icon-button {
+	position: relative;
+	z-index: 2;
+}
+
+.tangent-send-icon-button.streaming {
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+}
+
+/* Main container styling */
+.tangent-chat-input-main-container {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	background-color: var(--background-secondary);
+	margin: 8px;
+	padding: 4px 8px 40px 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	position: relative;
+}
+
+/* Context files container */
+.tangent-context-files-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+/* Context file item */
+.tangent-context-file-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	padding: 2px 4px;
+	font-size: 11px;
+	color: var(--text-muted);
+	font-weight: 500;
+	opacity: 0.85;
+	height: 25px;
+}
+
+.tangent-context-file-item.current-file {
+	opacity: 1;
+}
+
+/* Current file indicator */
+.tangent-current-file-indicator {
+	color: var(--text-faint);
+	margin-left: 2px;
+}
+
+/* ChatPanel Component Styles */
+
+/* File List Result */
+.tangent-file-list {
+	padding-left: 20px;
+	margin: 0;
+}
+
+.tangent-file-list-item {
+	list-style: none;
+	margin-bottom: 2px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.tangent-file-name {
+	font-weight: 400;
+}
+
+.tangent-file-name.folder {
+	font-weight: 600;
+}
+
+.tangent-file-path {
+	font-size: 0.7em;
+	color: var(--text-muted);
+	margin-left: 8px;
+}
+
+/* Collapsible Tool Components */
+.tangent-collapsible-trigger {
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.tangent-tool-args {
+	margin: 4px 0 0 0;
+	font-size: 0.9em;
+	color: #888;
+	background: none;
+	border: none;
+	padding: 0;
+}
+
+.tangent-tool-result-content {
+	margin-top: 4px;
+}
+
+/* Tool Confirmation Card */
+.tangent-tool-confirmation-result {
+	padding: 12px 16px;
+	border-radius: 8px;
+	margin: 8px 0;
+}
+
+.tangent-tool-confirmation-result.approved {
+	background-color: var(--color-green-bg);
+	border: 1px solid var(--color-green);
+}
+
+.tangent-tool-confirmation-result.denied {
+	background-color: var(--color-red-bg);
+	border: 1px solid var(--color-red);
+}
+
+.tangent-tool-confirmation-title {
+	font-weight: bold;
+	margin-bottom: 4px;
+}
+
+.tangent-tool-confirmation-message {
+	font-size: 13px;
+	opacity: 0.8;
+}
+
+.tangent-tool-confirmation-pending {
+	padding: 12px 16px;
+	background-color: var(--background-secondary);
+	border-radius: 8px;
+	border: 1px solid var(--color-orange);
+	margin: 8px 0;
+}
+
+.tangent-tool-confirmation-header {
+	font-weight: bold;
+	margin-bottom: 8px;
+	color: var(--color-orange);
+}
+
+.tangent-tool-confirmation-tool {
+	margin-bottom: 8px;
+}
+
+.tangent-tool-confirmation-args {
+	margin-bottom: 12px;
+	font-size: 12px;
+	font-family: monospace;
+	background-color: var(--background-primary);
+	padding: 8px;
+	border-radius: 4px;
+}
+
+.tangent-tool-confirmation-args pre {
+	margin: 0;
+	white-space: pre-wrap;
+}
+
+.tangent-tool-confirmation-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.tangent-tool-confirmation-btn {
+	padding: 6px 12px;
+	color: white;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	opacity: 1;
+}
+
+.tangent-tool-confirmation-btn:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.tangent-tool-confirmation-btn.approve {
+	background-color: var(--color-green);
+}
+
+.tangent-tool-confirmation-btn.deny {
+	background-color: var(--color-red);
+}
+
+/* Main ChatPanel Layout */
+.tangent-chat-panel-main {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	background-color: var(--background-primary);
+}
+
+.tangent-chat-panel-top-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 8px;
+	padding: 5px 10px 5px 10px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tangent-chat-panel-title {
+	font-weight: 700;
+	font-size: 1.2em;
+	letter-spacing: 1px;
+}
+
+.tangent-chat-panel-actions {
+	display: flex;
+	gap: 2px;
+}
+
+.tangent-chat-panel-messages {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.tangent-chat-panel-input-area {
+	padding: 0;
+	border-top: 1px solid var(--background-modifier-border);
+	background-color: var(--background-primary);
+}
+
+.tangent-servers-view {
+	padding: 16px;
+}
+
+.tangent-server-error {
+	color: red;
+}
+
+/* FilePreviewItem Component Styles */
+
+/* Main container */
+.tangent-file-preview-item {
+	position: relative;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 8px;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 12px;
+	min-height: 60px;
+	transition: all 0.2s ease;
+	cursor: pointer;
+}
+
+/* File preview area */
+.tangent-file-preview-area {
+	width: 48px;
+	height: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	overflow: hidden;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+}
+
+/* File image */
+.tangent-file-preview-image {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 2px;
+}
+
+/* File details container */
+.tangent-file-details {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+
+/* File name */
+.tangent-file-preview-name {
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--text-normal);
+	text-align: left;
+	line-height: 1.2;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* File size */
+.tangent-file-preview-size {
+	font-size: 10px;
+	color: var(--text-muted);
+	text-align: left;
+}
+
+/* Status indicators */
+.tangent-file-status-indicator {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+.tangent-file-status-indicator.uploading {
+	background: var(--color-orange);
+	animation: pulse 1.5s infinite;
+}
+
+.tangent-file-status-indicator.error {
+	background: var(--color-red);
+}
+
+/* Remove button container */
+.tangent-file-remove-container {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	z-index: 1;
+}
+
+.tangent-file-preview-item:hover .tangent-file-remove-container {
+	opacity: 1;
+}
+
+/* Remove button */
+.tangent-file-remove-btn {
+	width: 20px;
+	height: 20px;
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	transition: background-color 0.2s ease;
+}
+
+.tangent-file-remove-btn.confirming {
+	background-color: var(--color-red);
+	color: white;
+}
+
+/* Error message */
+.tangent-file-error-message {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: var(--color-red-bg);
+	color: var(--color-red);
+	font-size: 9px;
+	padding: 2px 4px;
+	text-align: center;
+	border-bottom-left-radius: 7px;
+	border-bottom-right-radius: 7px;
+}
+
+/* Pulse animation for uploading indicator */
+@keyframes pulse {
+	0% { opacity: 1; }
+	50% { opacity: 0.5; }
+	100% { opacity: 1; }
+}
+
 /* Ensure buttons don't interfere with text selection */
 .message-copy-button,
 .code-block-copy-button {
@@ -336,16 +881,7 @@ If your plugin does not need CSS, delete this file.
 	gap: 2px;
 	font-size: 0.75em;
 }
-.tangent-chat-tool-call span::before {
-	content: '🛠️';
-	margin-right: 2px;
-	font-size: 0.8em;
-}
-.tangent-chat-tool-result span::before {
-	content: '✅';
-	margin-right: 2px;
-	font-size: 0.8em;
-}
+/* Removed CSS pseudo-elements to avoid duplicate icons - now using LucidIcon components only */
 .tangent-chat-tool-call pre, .tangent-chat-tool-result pre {
 	background: var(--background-secondary-alt);
 	border-radius: 3px;
@@ -1457,4 +1993,131 @@ textarea:focus {
     flex-direction: column;
     gap: 8px;
   }
+}
+
+/* Tag Suggest Loading Modal Styles */
+.tag-suggest-loading-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.loading-spinner {
+  margin-bottom: 20px;
+  color: var(--interactive-accent);
+}
+
+.loading-spinner svg {
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-normal);
+  margin-bottom: 8px;
+}
+
+.loading-subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Tag Selection Modal Styles */
+.tag-selection-modal {
+  padding: 20px;
+}
+
+.tag-selection-header {
+  margin-bottom: 20px;
+}
+
+.tag-selection-header h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.tag-selection-reasoning {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  padding: 12px;
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+  border-left: 3px solid var(--interactive-accent);
+}
+
+.tag-selection-list {
+  margin-bottom: 24px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tag-selection-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.tag-selection-item:last-child {
+  border-bottom: none;
+}
+
+.tag-selection-item input[type="checkbox"] {
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.tag-selection-item label {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-normal);
+  flex: 1;
+}
+
+.tag-selection-item label:hover {
+  color: var(--interactive-accent);
+}
+
+.tag-selection-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.tag-selection-actions button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.tag-selection-actions button.mod-warning {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.tag-selection-actions button.mod-warning:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.tag-selection-actions button.mod-cta {
+  background-color: var(--interactive-accent);
+  border: 1px solid var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-weight: 500;
+}
+
+.tag-selection-actions button.mod-cta:hover {
+  background-color: var(--interactive-accent-hover);
 }

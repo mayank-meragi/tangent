@@ -19,40 +19,10 @@ export function getPreconfiguredServers(): MCPServerConfig[] {
       }
     },
     {
-      name: 'memory',
-      transport: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-memory'],
-      enabled: false,
-      env: {
-        MEMORY_FILE_PATH: path.join(os.homedir(), '.tangent', 'memory.json')
-      },
-      timeout: 60,
-      retryAttempts: 3
-    },
-    {
       name: 'filesystem',
       transport: 'stdio',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-filesystem'],
-      enabled: false,
-      timeout: 60,
-      retryAttempts: 3
-    },
-    {
-      name: 'git',
-      transport: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-git'],
-      enabled: false,
-      timeout: 60,
-      retryAttempts: 3
-    },
-    {
-      name: 'search',
-      transport: 'stdio',
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-search'],
       enabled: false,
       timeout: 60,
       retryAttempts: 3
@@ -68,6 +38,15 @@ export function getPreconfiguredServers(): MCPServerConfig[] {
       env: {
         GOOGLE_OAUTH_CREDENTIALS: '' // User will set this path
       }
+    },
+    {
+      name: 'gmail',
+      transport: 'stdio',
+      command: 'npx',
+      args: ['@gongrzhe/server-gmail-autoauth-mcp'],
+      enabled: false,
+      timeout: 60,
+      retryAttempts: 3
     }
   ];
 }
@@ -190,32 +169,6 @@ export function getServerInstallationInstructions(serverName: string): string | 
 
 Note: Obsidian plugins run in a restricted environment. If uvx still doesn't work, use the pip or npm alternatives.`;
     
-    case 'memory':
-      return `MCP Memory Server Setup Instructions:
-
-1. Ensure Node.js and npm are installed:
-   - Check with: node --version && npm --version
-   - Download from: https://nodejs.org/
-
-2. The memory server uses npx to run @modelcontextprotocol/server-memory
-   - npx will automatically download and run the package
-   - No manual installation required
-
-3. Verify npx is available:
-   - Open terminal and run: which npx
-   - Should be available with Node.js installation
-
-4. For Obsidian plugins:
-   - Node.js and npm must be available in the system PATH
-   - Try restarting Obsidian after installing Node.js
-   - Check that npx is accessible from terminal
-
-5. First run will download the package:
-   - npx will automatically download @modelcontextprotocol/server-memory
-   - Subsequent runs will use cached version
-
-Note: The memory server provides persistent memory capabilities for the AI assistant.`;
-    
     case 'filesystem':
       return `MCP Filesystem Server Setup Instructions:
 
@@ -241,59 +194,7 @@ Note: The memory server provides persistent memory capabilities for the AI assis
    - Subsequent runs will use cached version
 
 Note: The filesystem server provides file and directory operations capabilities.`;
-    
-    case 'git':
-      return `MCP Git Server Setup Instructions:
 
-1. Ensure Node.js and npm are installed:
-   - Check with: node --version && npm --version
-   - Download from: https://nodejs.org/
-
-2. The git server uses npx to run @modelcontextprotocol/server-git
-   - npx will automatically download and run the package
-   - No manual installation required
-
-3. Verify npx is available:
-   - Open terminal and run: which npx
-   - Should be available with Node.js installation
-
-4. For Obsidian plugins:
-   - Node.js and npm must be available in the system PATH
-   - Try restarting Obsidian after installing Node.js
-   - Check that npx is accessible from terminal
-
-5. First run will download the package:
-   - npx will automatically download @modelcontextprotocol/server-git
-   - Subsequent runs will use cached version
-
-Note: The git server provides Git repository operations and version control capabilities.`;
-    
-    case 'search':
-      return `MCP Search Server Setup Instructions:
-
-1. Ensure Node.js and npm are installed:
-   - Check with: node --version && npm --version
-   - Download from: https://nodejs.org/
-
-2. The search server uses npx to run @modelcontextprotocol/server-search
-   - npx will automatically download and run the package
-   - No manual installation required
-
-3. Verify npx is available:
-   - Open terminal and run: which npx
-   - Should be available with Node.js installation
-
-4. For Obsidian plugins:
-   - Node.js and npm must be available in the system PATH
-   - Try restarting Obsidian after installing Node.js
-   - Check that npx is accessible from terminal
-
-5. First run will download the package:
-   - npx will automatically download @modelcontextprotocol/server-search
-   - Subsequent runs will use cached version
-
-Note: The search server provides file and content search capabilities.`;
-    
     case 'google-calendar':
       return `Google Calendar MCP Server Setup Instructions:
 
@@ -329,6 +230,38 @@ Note: The search server provides file and content search capabilities.`;
 
 Note: The Google Calendar server provides calendar management capabilities including creating, updating, and searching events.`;
     
+    case 'gmail':
+      return `Gmail MCP Server Setup Instructions:
+
+1. Ensure Node.js and npm are installed:
+   - Check with: node --version && npm --version
+   - Download from: https://nodejs.org/
+
+2. The Gmail server uses npx to run @gongrzhe/server-gmail-autoauth-mcp
+   - npx will automatically download and run the package
+   - No manual installation required
+
+3. Verify npx is available:
+   - Open terminal and run: which npx
+   - Should be available with Node.js installation
+
+4. For Obsidian plugins:
+   - Node.js and npm must be available in the system PATH
+   - Try restarting Obsidian after installing Node.js
+   - Check that npx is accessible from terminal
+
+5. First run will download the package:
+   - npx will automatically download @gongrzhe/server-gmail-autoauth-mcp
+   - Subsequent runs will use cached version
+
+6. OAuth Authentication:
+   - The server uses auto OAuth authentication
+   - First time you enable it, it will open a browser window
+   - Complete the Google sign-in process
+   - Grant Gmail access permissions
+
+Note: The Gmail server provides email management capabilities including reading, sending, and searching emails.`;
+    
     default:
       return null;
   }
@@ -338,7 +271,7 @@ Note: The Google Calendar server provides calendar management capabilities inclu
  * Check if a server requires manual installation
  */
 export function requiresManualInstallation(serverName: string): boolean {
-  return ['time', 'memory', 'google-calendar'].includes(serverName);
+  return ['time', 'memory', 'google-calendar', 'gmail'].includes(serverName);
 }
 
 /**

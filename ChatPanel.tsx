@@ -20,19 +20,19 @@ import { VariableInputModal } from './src/components/VariableInputModal';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController) => Promise<void>;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
 
 // File list result renderer
 const FileListResult: React.FC<{ files: { name: string; type: 'file' | 'folder'; path: string }[] }> = ({ files }) => (
-  <ul style={{ paddingLeft: 20, margin: 0 }}>
+  <ul className="tangent-file-list">
     {files.map((file, i) => (
-      <li key={i} style={{ listStyle: 'none', marginBottom: 2, display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <li key={i} className="tangent-file-list-item">
         <LucidIcon name={file.type === 'folder' ? 'folder' : 'file-text'} size={12} />
-        <span style={{ fontWeight: file.type === 'folder' ? 600 : 400 }}>{file.name}</span>
-        <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', marginLeft: '8px' }}>({file.path})</span>
+        <span className={`tangent-file-name ${file.type === 'folder' ? 'folder' : ''}`}>{file.name}</span>
+        <span className="tangent-file-path">({file.path})</span>
       </li>
     ))}
   </ul>
@@ -43,13 +43,13 @@ const CollapsibleToolCall: React.FC<{ toolName: string; toolArgs: any }> = ({ to
   const [open, setOpen] = useState(false);
   return (
     <div className="tangent-chat-tool-call">
-      <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setOpen(o => !o)}>
+      <span className="tangent-collapsible-trigger" onClick={() => setOpen(o => !o)}>
         <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
-        <LucidIcon name="wrench" size={12} />
+        <LucidIcon name="wrench" size={8} />
         <b>Calling tool:</b> {toolName}
       </span>
       {open && toolArgs && (
-        <pre style={{ margin: '4px 0 0 0', fontSize: '0.9em', color: '#888', background: 'none', border: 'none', padding: 0 }}>{JSON.stringify(toolArgs, null, 2)}</pre>
+        <pre className="tangent-tool-args">{JSON.stringify(toolArgs, null, 2)}</pre>
       )}
     </div>
   );
@@ -60,13 +60,13 @@ const CollapsibleToolResult: React.FC<{ toolName: string; result: any }> = ({ to
   const [open, setOpen] = useState(false);
   return (
     <div className="tangent-chat-tool-result">
-      <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => setOpen(o => !o)}>
+      <span className="tangent-collapsible-trigger" onClick={() => setOpen(o => !o)}>
         <LucidIcon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
-        <LucidIcon name="check-circle" size={12} />
+        <LucidIcon name="check-circle" size={8} />
         <b>Tool result:</b> {toolName}
       </span>
       {open && (
-        <div style={{ marginTop: 4 }}>
+        <div className="tangent-tool-result-content">
           {result.type === 'file-list' ? (
             <FileListResult files={result.files} />
           ) : result.type === 'text' ? (
@@ -106,17 +106,11 @@ const ToolConfirmationCard: React.FC<{
   if (approved !== undefined) {
     // Show result of confirmation
     return (
-      <div style={{
-        padding: '12px 16px',
-        backgroundColor: approved ? 'var(--color-green-bg)' : 'var(--color-red-bg)',
-        borderRadius: '8px',
-        border: `1px solid ${approved ? 'var(--color-green)' : 'var(--color-red)'}`,
-        margin: '8px 0'
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+      <div className={`tangent-tool-confirmation-result ${approved ? 'approved' : 'denied'}`}>
+        <div className="tangent-tool-confirmation-title">
           {approved ? '✅ Tool Approved' : '❌ Tool Denied'}
         </div>
-        <div style={{ fontSize: '13px', opacity: 0.8 }}>
+        <div className="tangent-tool-confirmation-message">
           {pendingTool.name} {approved ? 'was executed' : 'was cancelled'}
         </div>
       </div>
@@ -124,53 +118,31 @@ const ToolConfirmationCard: React.FC<{
   }
 
   return (
-    <div style={{
-      padding: '12px 16px',
-      backgroundColor: 'var(--background-secondary)',
-      borderRadius: '8px',
-      border: '1px solid var(--color-orange)',
-      margin: '8px 0'
-    }}>
-      <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--color-orange)' }}>
+    <div className="tangent-tool-confirmation-pending">
+      <div className="tangent-tool-confirmation-header">
         🔧 Tool Confirmation Required
       </div>
-      <div style={{ marginBottom: '8px' }}>
+      <div className="tangent-tool-confirmation-tool">
         <strong>Tool:</strong> {pendingTool.name}
       </div>
-      <div style={{ marginBottom: '12px', fontSize: '12px', fontFamily: 'monospace', backgroundColor: 'var(--background-primary)', padding: '8px', borderRadius: '4px' }}>
+      <div className="tangent-tool-confirmation-args">
         <strong>Arguments:</strong>
-        <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+        <pre>
           {JSON.stringify(pendingTool.args, null, 2)}
         </pre>
       </div>
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div className="tangent-tool-confirmation-actions">
         <button
           onClick={handleApprove}
           disabled={isProcessing}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: 'var(--color-green)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
-            opacity: isProcessing ? 0.6 : 1
-          }}
+          className="tangent-tool-confirmation-btn approve"
         >
           {isProcessing ? 'Processing...' : 'Approve'}
         </button>
         <button
           onClick={handleDeny}
           disabled={isProcessing}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: 'var(--color-red)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isProcessing ? 'not-allowed' : 'pointer',
-            opacity: isProcessing ? 0.6 : 1
-          }}
+          className="tangent-tool-confirmation-btn deny"
         >
           {isProcessing ? 'Processing...' : 'Deny'}
         </button>
@@ -228,8 +200,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const currentMessagesRef = useRef(messages);
   const justSelectedFileRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Add AbortController ref for cancellation
+  const abortControllerRef = useRef<AbortController | null>(null);
   // State for which view is active
   const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
+  // Smart scrolling state
+  const [userHasScrolledUp, setUserHasScrolledUp] = React.useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Update thinking enabled state when model changes
   useEffect(() => {
@@ -241,6 +218,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // Calculate thinking budget based on enabled state
   const getThinkingBudget = () => {
     return thinkingEnabled ? (selectedModel.defaultThinkingBudget || 8192) : 0;
+  };
+
+  // Cancel streaming function
+  const cancelStreaming = () => {
+    if (abortControllerRef.current) {
+      console.log('[ChatPanel] Cancelling streaming request');
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
   };
 
   // Tool confirmation handler
@@ -284,6 +271,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   useEffect(() => {
     currentMessagesRef.current = messages;
   }, [messages]);
+
+  // Smart scrolling: detect if user has scrolled up
+  useEffect(() => {
+    const messagesContainer = messagesContainerRef.current;
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px threshold
+      setUserHasScrolledUp(!isAtBottom);
+    };
+
+    messagesContainer.addEventListener('scroll', handleScroll);
+    return () => messagesContainer.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Initialize template service
   useEffect(() => {
@@ -666,6 +668,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     loadMessages(conversation.messages);
     setCurrentConversation(conversation);
     setActiveView('chat'); // Switch to chat view after loading conversation
+    // Reset scroll state when loading conversation
+    setUserHasScrolledUp(false);
   };
 
   // Auto-save conversation when messages change
@@ -811,7 +815,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
     if (isStreaming) return;
     
-
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
     
     const currentMessages = currentMessagesRef.current;
     const conversationHistory = existingConversationHistory || [];
@@ -854,9 +859,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     let streamingThinkingId: string | null = null;
     let lastStreamingThought = '';
 
-    await streamAIResponse(
-      '', // Empty prompt since we're using conversation history
-      (tokenOrChunk: any) => {
+    try {
+      await streamAIResponse(
+        '', // Empty prompt since we're using conversation history
+        (tokenOrChunk: any) => {
         if (typeof tokenOrChunk === 'string') {
           if (streamingMessageId) {
             lastStreamingMessage += tokenOrChunk;
@@ -968,8 +974,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         }
       },
       handleToolConfirmation,
-      webSearchEnabled
+      webSearchEnabled,
+      abortControllerRef.current // Pass the AbortController
     );
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('[ChatPanel] Streaming was cancelled');
+      // Mark any streaming messages as cancelled
+      if (streamingMessageId) {
+        updateMessage(streamingMessageId, { 
+          streaming: false,
+          message: lastStreamingMessage + '\n\n*[Response cancelled by user]*'
+        });
+      }
+      if (streamingThinkingId) {
+        updateMessage(streamingThinkingId, { streaming: false });
+      }
+    } else {
+      console.error('[ChatPanel] Error in streaming:', error);
+    }
+  } finally {
+    setIsStreaming(false);
+    abortControllerRef.current = null;
+  }
   };
 
   const formatTimestamp = () => {
@@ -998,6 +1025,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       // Remove all messages after the edited message
       removeMessagesAfter(editingMessageId);
       setEditingMessageId(null); // Clear editing state
+      setInput(''); // Clear input after editing
     }
 
     // Build conversation history
@@ -1090,15 +1118,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       console.error('Error sending message:', error);
     } finally {
       setIsStreaming(false);
-      if (!editingMessageId) {
-        setInput('');
-      }
+      // Always clear input after sending, regardless of editing state
+      setInput('');
     }
   };
 
+  // Smart auto-scrolling: only scroll to bottom if streaming or user is at bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Only auto-scroll if:
+    // 1. We're streaming (new content is being added)
+    // 2. OR user hasn't scrolled up (they're at the bottom)
+    if (isStreaming || !userHasScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isStreaming, userHasScrolledUp]);
 
   // Add keyboard shortcuts for text selection and copying
   useEffect(() => {
@@ -1143,6 +1176,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const getMCPServerStatuses = () => mcpServerManager?.getAllServerStatuses() || [];
   
   const handleNewChat = () => {
+    // Cancel any ongoing streaming
+    if (isStreaming) {
+      cancelStreaming();
+    }
+    
     clearMessages();
     setCurrentConversation(null);
     setInput('');
@@ -1156,19 +1194,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setSelectedFileIndex(0);
     setSelectedTemplateIndex(0);
     setActiveView('chat');
+    // Reset scroll state for new chat
+    setUserHasScrolledUp(false);
   };
 
   return (
-    <div className="tangent-chat-panel-root" style={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      backgroundColor: 'var(--background-primary)'
-    }}>
+    <div className="tangent-chat-panel-root tangent-chat-panel-main">
       {/* Top Bar with Icon Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: '1.2em', letterSpacing: 1 }}>TANGENT</div>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div className="tangent-chat-panel-top-bar">
+        <div className="tangent-chat-panel-title">TANGENT</div>
+        <div className="tangent-chat-panel-actions">
           <IconButton
             icon={<LucidIcon name="history" size={18} />}
             ariaLabel="History"
@@ -1194,14 +1229,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       {activeView === 'chat' && (
         <>
           {/* Messages */}
-          <div style={{ 
-            flex: 1, 
-            overflowY: 'auto',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px'
-          }}>
+          <div className="tangent-chat-panel-messages" ref={messagesContainerRef}>
 
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
@@ -1262,11 +1290,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       </div>
 
       {/* Input Area */}
-      <div style={{
-        padding: '0',
-        borderTop: '1px solid var(--background-modifier-border)',
-        backgroundColor: 'var(--background-primary)'
-      }}>
+      <div className="tangent-chat-panel-input-area">
         <ChatInputContainer
           selectedFiles={selectedFiles}
           input={input}
@@ -1302,6 +1326,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           // Web search props
           webSearchEnabled={webSearchEnabled}
           setWebSearchEnabled={setWebSearchEnabled}
+          // Cancellation prop
+          onCancelStreaming={cancelStreaming}
         />
       </div>
         </>
@@ -1323,7 +1349,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         />
       )}
       {activeView === 'servers' && (
-        <div style={{ padding: '16px' }}>
+        <div className="tangent-servers-view">
           <h3>MCP Servers</h3>
           <p>Server management has been simplified. Use the settings to configure MCP servers.</p>
           <p>Current server statuses:</p>
@@ -1331,7 +1357,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             {getMCPServerStatuses().map((status: any) => (
               <li key={status.name}>
                 {status.name}: {status.status}
-                {status.lastError && <span style={{ color: 'red' }}> - {status.lastError}</span>}
+                {status.lastError && <span className="tangent-server-error"> - {status.lastError}</span>}
               </li>
             ))}
           </ul>

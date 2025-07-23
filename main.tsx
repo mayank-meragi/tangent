@@ -7,6 +7,7 @@ import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
 import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
 import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
 import { TemplateService } from './templateService';
+import { createTagSuggestCommand } from './commands';
 
 // Remember to rename these classes and interfaces!
 
@@ -129,6 +130,19 @@ export default class MyPlugin extends Plugin {
 			name: 'Debug Dropdown UI',
 			callback: () => {
 				this.debugDropdownUI();
+			}
+		});
+
+		// Add AI Tag Suggest command
+		this.addCommand({
+			id: 'ai-tag-suggest',
+			name: 'AI Tag Suggest',
+			callback: async () => {
+				const tagSuggestCommand = createTagSuggestCommand({
+					app: this.app,
+					geminiApiKey: this.settings.geminiApiKey
+				});
+				await tagSuggestCommand.execute();
 			}
 		});
 
@@ -1015,7 +1029,8 @@ class ChatPanelView extends ItemView {
 			thinkingBudget?: number,
 			onThinking?: (thoughts: string) => void,
 			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>,
-			webSearchEnabled?: boolean
+			webSearchEnabled?: boolean,
+			abortController?: AbortController
 		) => {
 			await streamAIResponse({
 				apiKey: this.plugin.settings.geminiApiKey || '',
@@ -1032,6 +1047,7 @@ class ChatPanelView extends ItemView {
 				unifiedToolManager: this.plugin.unifiedToolManager,
 				maxNestedCalls: 3,
 				webSearchEnabled: webSearchEnabled || false,
+				abortController,
 			});
 		};
 
