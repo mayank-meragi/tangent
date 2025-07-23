@@ -138,4 +138,17 @@ export interface UpdateTemplatePayload {
   variables?: TemplateVariable[];
   settings?: TemplateSettings;
   favorite?: boolean;
+}
+
+// Persona data models for AI behavior modification
+export interface Persona {
+  id: string;
+  name: string;
+  description: string;
+  content: string;           // Behavior instructions
+  color: string;             // Hex color for visual identification
+  author: string;            // "system" for built-in, "user" for custom
+  created: string;
+  updated: string;
+  filePath?: string;         // Path to markdown file for user personas
 } 

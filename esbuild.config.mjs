@@ -38,7 +38,33 @@ function bundleSystemTemplates() {
   return bundledTemplates;
 }
 
+// Bundle system personas into the plugin
+function bundleSystemPersonas() {
+  const personasDir = path.join(process.cwd(), 'tangent/personas');
+  const bundledPersonas = {};
+  
+  if (fs.existsSync(personasDir)) {
+    const personaFiles = fs.readdirSync(personasDir)
+      .filter(file => file.endsWith('.md'))
+      .sort();
+    
+    for (const file of personaFiles) {
+      const filePath = path.join(personasDir, file);
+      const content = fs.readFileSync(filePath, 'utf8');
+      const relativePath = path.relative(process.cwd(), filePath);
+      bundledPersonas[relativePath] = content;
+    }
+    
+    console.log(`📦 Bundled ${Object.keys(bundledPersonas).length} system personas`);
+  } else {
+    console.log('⚠️  No personas directory found, skipping persona bundling');
+  }
+  
+  return bundledPersonas;
+}
+
 const systemTemplates = bundleSystemTemplates();
+const systemPersonas = bundleSystemPersonas();
 
 const context = await esbuild.context({
 	banner: {
@@ -75,6 +101,8 @@ const context = await esbuild.context({
 		'process.env.NODE_ENV': prod ? '"production"' : '"development"',
 		// Inject bundled templates into the build
 		'globalThis.__SYSTEM_TEMPLATES__': JSON.stringify(systemTemplates),
+		// Inject bundled personas into the build
+		'globalThis.__SYSTEM_PERSONAS__': JSON.stringify(systemPersonas),
 	},
 });
 

@@ -3,10 +3,11 @@ import ReactMarkdown from 'react-markdown';
 import { MODEL_CONFIGS, ModelConfig } from './modelConfigs';
 import { useChatMessages, ChatMessagesProvider } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
-import { systemPrompt } from './systemPrompt';
+import { createSystemPrompt } from './systemPrompt';
 import { PendingToolCall, ToolConfirmationResult } from './tools';
 import { ConversationService, Conversation } from './conversationService';
 import { TemplateService } from './templateService';
+import { PersonaService } from './personaService';
 import HistoryTab from './HistoryTab';
 import IconButton from './src/components/IconButton';
 import ChatMessageContainer from './src/components/ChatMessageContainer';
@@ -15,9 +16,11 @@ import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
 import UserMessage from './src/components/UserMessage';
 import { UploadedFile, fileUploadService } from './FileUploadService';
-import { DropdownItem, ConversationTemplate, TemplateSettings } from './tools/types';
+import { DropdownItem, ConversationTemplate, TemplateSettings, Persona } from './tools/types';
 import { VariableInputModal } from './src/components/VariableInputModal';
 import TemplateSettingsPreview from './src/components/TemplateSettingsPreview';
+import PersonaSelector from './src/components/PersonaSelector';
+import PersonaBadge from './src/components/PersonaBadge';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -195,6 +198,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [showVariableModal, setShowVariableModal] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<ConversationTemplate | null>(null);
 
+  // Persona-related state
+  const [personaService] = useState(() => new PersonaService(app));
+  const [selectedPersona, setSelectedPersona] = React.useState<Persona | null>(null);
+  const [personas, setPersonas] = React.useState<Persona[]>([]);
+  const [isPersonaSelectorVisible, setIsPersonaSelectorVisible] = React.useState(true);
+
   const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -215,6 +224,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       setThinkingEnabled(selectedModel.defaultThinkingBudget > 0);
     }
   }, [selectedModel]);
+
+  // Load personas on component mount
+  useEffect(() => {
+    const loadPersonas = async () => {
+      try {
+        const allPersonas = await personaService.getAllPersonas();
+        setPersonas(allPersonas);
+      } catch (error) {
+        console.error('Failed to load personas:', error);
+      }
+    };
+    loadPersonas();
+  }, [personaService]);
+
+  // Persona selection handlers
+  const handlePersonaSelect = (persona: Persona) => {
+    setSelectedPersona(persona);
+  };
+
+  const handlePersonaClear = () => {
+    setSelectedPersona(null);
+  };
+
+  const handleFirstMessage = () => {
+    setIsPersonaSelectorVisible(false);
+  };
 
   // Calculate thinking budget based on enabled state
   const getThinkingBudget = () => {
@@ -871,7 +906,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     if (!conversationHistory.some(msg => msg.role === 'system')) {
       conversationHistory.unshift({
         role: 'system',
-        parts: [{ text: systemPrompt }]
+        parts: [{ text: createSystemPrompt(selectedPersona || undefined) }]
       });
     }
     
@@ -1071,6 +1106,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   const sendMessage = async (messageText?: string, hideMessage?: boolean) => {
+    // Hide persona selector on first message
+    if (isPersonaSelectorVisible) {
+      handleFirstMessage();
+    }
+    
     const textToSend = messageText || input.trim();
     
     if (!textToSend && !hideMessage) return;
@@ -1090,7 +1130,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
     // Build conversation history
     const conversationHistory: ConversationMessage[] = [];
-    const systemMessage = systemPrompt;
+    const systemMessage = createSystemPrompt(selectedPersona || undefined);
     conversationHistory.push({
       role: 'system',
       parts: [{ text: systemMessage }]
@@ -1256,10 +1296,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setActiveView('chat');
     // Reset scroll state for new chat
     setUserHasScrolledUp(false);
+    // Reset persona state for new chat
+    setSelectedPersona(null);
+    setIsPersonaSelectorVisible(true);
   };
 
   return (
-    <div className="tangent-chat-panel-root tangent-chat-panel-main">
+    <div className={`tangent-chat-panel-root tangent-chat-panel-main ${selectedPersona ? 'with-persona' : ''}`}>
       {/* Top Bar with Icon Buttons */}
       <div className="tangent-chat-panel-top-bar">
         <div className="tangent-chat-panel-title">TANGENT</div>
@@ -1290,6 +1333,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         <>
           {/* Messages */}
           <div className="tangent-chat-panel-messages" ref={messagesContainerRef}>
+            {/* Persona Badge */}
+            {selectedPersona && messages.length > 0 && (
+              <PersonaBadge 
+                persona={selectedPersona} 
+                onClear={handlePersonaClear} 
+              />
+            )}
 
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
@@ -1353,6 +1403,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         })}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Persona Selector */}
+      <PersonaSelector
+        personas={personas}
+        selectedPersona={selectedPersona}
+        onPersonaSelect={handlePersonaSelect}
+        onPersonaClear={handlePersonaClear}
+        isVisible={isPersonaSelectorVisible && messages.length === 0}
+      />
 
       {/* Input Area */}
       <div className="tangent-chat-panel-input-area">

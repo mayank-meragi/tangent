@@ -2259,3 +2259,306 @@ textarea:focus {
   font-family: monospace;
   word-break: break-all;
 }
+
+/* Persona Selector Styles */
+.tangent-persona-selector-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  min-height: 300px;
+  background: var(--background-primary);
+}
+
+.tangent-persona-selector {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tangent-persona-selector-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.tangent-persona-selector-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tangent-persona-selector-title h3 {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.tangent-persona-selector-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.tangent-persona-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tangent-persona-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--background-primary);
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.tangent-persona-option:hover {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary-alt);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tangent-persona-option.selected {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary-alt);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.tangent-persona-option.hovered:not(.selected) {
+  border-color: var(--interactive-accent-hover);
+  background: var(--background-primary-alt);
+}
+
+.tangent-persona-color {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.tangent-persona-color.no-persona {
+  background: var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.tangent-persona-option:hover .tangent-persona-color {
+  transform: scale(1.05);
+}
+
+.tangent-persona-option.selected .tangent-persona-color {
+  transform: scale(1.1);
+}
+
+.tangent-persona-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tangent-persona-name {
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--text-normal);
+  margin-bottom: 4px;
+}
+
+.tangent-persona-description {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.tangent-persona-author {
+  font-size: 0.75em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tangent-persona-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--interactive-accent);
+  color: white;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: checkIn 0.2s ease-out;
+}
+
+@keyframes checkIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tangent-persona-preview {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 300px;
+    overflow: visible;
+  }
+}
+
+.tangent-persona-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--text-normal);
+  font-size: 0.9em;
+}
+
+.tangent-persona-preview-content {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Persona Badge in Chat */
+.tangent-persona-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.tangent-persona-badge-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tangent-persona-badge-name {
+  color: var(--text-normal);
+}
+
+.tangent-persona-badge-clear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.tangent-persona-badge-clear:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Persona Border for Chat Panel */
+.tangent-chat-panel-root.with-persona {
+  border-left: 4px solid var(--interactive-accent);
+  position: relative;
+}
+
+.tangent-chat-panel-root.with-persona::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--interactive-accent);
+  z-index: 1;
+}
+
+.tangent-chat-panel-root.with-persona .tangent-chat-panel-top-bar {
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+/* Responsive Design for Personas */
+@media (max-width: 768px) {
+  .tangent-persona-selector-container {
+    padding: 12px;
+  }
+  
+  .tangent-persona-selector {
+    padding: 16px;
+  }
+  
+  .tangent-persona-option {
+    padding: 12px;
+  }
+  
+  .tangent-persona-color {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .tangent-persona-name {
+    font-size: 0.9em;
+  }
+  
+  .tangent-persona-description {
+    font-size: 0.8em;
+  }
+}
