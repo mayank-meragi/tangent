@@ -199,7 +199,31 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
                 fontSize: '12px',
                 color: 'var(--text-muted)'
               }}>
-                <span>{getMessageCount(conversation)} messages</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{getMessageCount(conversation)} messages</span>
+                  {conversation.selectedPersona && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '2px 6px',
+                      borderRadius: '12px',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      backgroundColor: `${conversation.selectedPersona.color}20`,
+                      color: conversation.selectedPersona.color,
+                      border: `1px solid ${conversation.selectedPersona.color}40`
+                    }}>
+                      <div style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: conversation.selectedPersona.color
+                      }} />
+                      {conversation.selectedPersona.name}
+                    </div>
+                  )}
+                </div>
                 <span>{formatDate(conversation.updatedAt)}</span>
               </div>
             </div>

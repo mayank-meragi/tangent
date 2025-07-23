@@ -731,10 +731,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       
       if (currentConversation) {
         // Update existing conversation
-        conversation = conversationService.updateConversation(currentConversation, messages);
+        conversation = conversationService.updateConversation(currentConversation, messages, selectedPersona);
       } else {
         // Create new conversation
-        conversation = conversationService.createConversationFromMessages(messages);
+        conversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona);
         setCurrentConversation(conversation);
       }
       
@@ -747,6 +747,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const loadConversation = (conversation: Conversation) => {
     loadMessages(conversation.messages);
     setCurrentConversation(conversation);
+    
+    // Load the persona if it exists in the conversation
+    if (conversation.selectedPersona) {
+      setSelectedPersona(conversation.selectedPersona);
+      setIsPersonaSelectorVisible(false);
+    } else {
+      setSelectedPersona(null);
+      setIsPersonaSelectorVisible(messages.length === 0);
+    }
+    
     setActiveView('chat'); // Switch to chat view after loading conversation
     // Reset scroll state when loading conversation
     setUserHasScrolledUp(false);
