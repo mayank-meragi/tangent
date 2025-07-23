@@ -46,6 +46,7 @@ export async function streamAIResponse({
   maxNestedCalls = 3, // Prevent infinite recursion
   webSearchEnabled = false, // New parameter for web search
   abortController, // Add AbortController parameter
+  onSearchResults, // Add callback for search results
 }: {
   apiKey: string;
   modelId: string;
@@ -62,6 +63,7 @@ export async function streamAIResponse({
   maxNestedCalls?: number;
   webSearchEnabled?: boolean; // New parameter type
   abortController?: AbortController; // Add AbortController type
+  onSearchResults?: (searchQuery: string, searchResults: any[]) => void; // Add search results callback
 }) {
   // Check if already aborted before starting
   if (abortController?.signal.aborted) {
@@ -441,17 +443,13 @@ export async function streamAIResponse({
             console.log('[AI DEBUG] Found search query:', searchQuery);
             console.log('[AI DEBUG] Found search results:', searchResults.length);
             
-            // Add search results to the response context
-            if (onToken && searchResults.length > 0) {
-              onToken('\n\n**Sources from web search:**\n');
-              searchResults.forEach((result: any, index: number) => {
-                onToken(`${index + 1}. [${result.title}](${result.url})\n`);
-                if (result.snippet && result.snippet !== 'Web search result') {
-                  onToken(`${result.snippet}\n\n`);
-                } else {
-                  onToken('\n');
-                }
-              });
+            // Store search results for the SearchResultsDisplay component
+            // Don't add them to the message text - they'll be displayed separately
+            console.log('[AI DEBUG] Search results will be displayed in SearchResultsDisplay component');
+            
+            // Call the search results callback if provided
+            if (onSearchResults && searchResults.length > 0) {
+              onSearchResults(searchQuery, searchResults);
             }
           }
         }

@@ -21,7 +21,7 @@ import TemplateSettingsPreview from './src/components/TemplateSettingsPreview';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController, onSearchResults?: (searchQuery: string, searchResults: any[]) => void) => Promise<void>;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -903,6 +903,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     let lastStreamingMessage = '';
     let streamingThinkingId: string | null = null;
     let lastStreamingThought = '';
+    let currentSearchQuery: string | null = null;
+    let currentSearchResults: any[] = [];
 
     try {
       await streamAIResponse(
@@ -1020,7 +1022,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       },
       handleToolConfirmation,
       webSearchEnabled,
-      abortControllerRef.current // Pass the AbortController
+      abortControllerRef.current, // Pass the AbortController
+      (searchQuery: string, searchResults: any[]) => {
+        // Store search results for the current message
+        currentSearchQuery = searchQuery;
+        currentSearchResults = searchResults;
+        
+        // Update the current streaming message with search results
+        if (streamingMessageId) {
+          updateMessage(streamingMessageId, {
+            searchQuery: currentSearchQuery,
+            searchResults: currentSearchResults
+          });
+        }
+      }
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

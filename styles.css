@@ -2176,7 +2176,7 @@ textarea:focus {
 /* Web Search Results Display */
 .tangent-search-results {
   margin-top: 12px;
-  padding: 12px;
+  padding: 10px;
   background: var(--background-secondary);
   border-radius: 6px;
   border-left: 3px solid var(--color-blue);
@@ -2187,10 +2187,14 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.tangent-search-results-header:hover {
+  color: var(--text-normal);
 }
 
 .tangent-search-results-title {
@@ -2202,6 +2206,16 @@ textarea:focus {
 .tangent-search-query {
   font-weight: 400;
   color: var(--text-normal);
+}
+
+.tangent-search-query-display {
+  padding: 8px;
+  background: var(--background-primary);
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .tangent-search-results-list {
