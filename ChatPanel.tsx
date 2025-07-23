@@ -1326,7 +1326,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                   showEdit={true}
                 />
               ) : isAI ? (
-                <AIMessage thought={msg.thought} message={msg.message} />
+                <AIMessage 
+                  thought={msg.thought} 
+                  message={msg.message} 
+                  searchQuery={msg.searchQuery}
+                  searchResults={msg.searchResults}
+                />
               ) : null}
             </ChatMessageContainer>
           );

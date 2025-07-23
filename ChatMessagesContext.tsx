@@ -2,9 +2,15 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { PendingToolCall } from './tools';
 import { UploadedFile } from './FileUploadService';
 
+interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
 export type ChatMessage =
   | { id: string; role: 'user'; content: string; files?: UploadedFile[]; timestamp?: string }
-  | { id: string; role: 'ai'; message: string; thought: string; streaming?: boolean; timestamp?: string }
+  | { id: string; role: 'ai'; message: string; thought: string; streaming?: boolean; timestamp?: string; searchQuery?: string; searchResults?: SearchResult[] }
   | { id: string; role: 'tool-call'; toolName: string; toolArgs: any }
   | { id: string; role: 'tool-result'; toolName: string; result: any }
   | { id: string; role: 'tool-confirmation'; pendingTool: PendingToolCall; approved?: boolean };
@@ -54,7 +60,9 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
         message: msg.message,
         thought: msg.thought,
         streaming: msg.streaming,
-        timestamp: msg.timestamp
+        timestamp: msg.timestamp,
+        searchQuery: msg.searchQuery,
+        searchResults: msg.searchResults
       };
     } else if (msg.role === 'user') {
       messageWithId = {

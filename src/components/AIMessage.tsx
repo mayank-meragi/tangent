@@ -3,17 +3,28 @@ import ReactMarkdown from 'react-markdown';
 import CollapsibleThinking from './CollapsibleThinking';
 import IconButton from './IconButton';
 import LucidIcon from './LucidIcon';
+import SearchResultsDisplay from './SearchResultsDisplay';
+
+interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
 
 interface AIMessageProps {
   thought?: string;
   message?: string;
   style?: React.CSSProperties;
+  searchQuery?: string;
+  searchResults?: SearchResult[];
 }
 
 const AIMessage: React.FC<AIMessageProps> = ({
   thought,
   message,
   style = {},
+  searchQuery,
+  searchResults = [],
 }) => {
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -378,6 +389,13 @@ const AIMessage: React.FC<AIMessageProps> = ({
           </ReactMarkdown>
         </div>
       )}
+      
+      {/* Search Results Display */}
+      <SearchResultsDisplay
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        isVisible={!!searchResults.length}
+      />
     </div>
   );
 };

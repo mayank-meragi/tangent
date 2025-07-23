@@ -396,6 +396,66 @@ export async function streamAIResponse({
           console.log('[AI DEBUG] No response content found to process');
         }
         
+        // Process grounding metadata if web search was used
+        if (webSearchEnabled && fullResponse?.candidates?.[0]?.groundingMetadata) {
+          const metadata = fullResponse.candidates[0].groundingMetadata;
+          console.log('[AI DEBUG] Processing grounding metadata:', metadata);
+          
+          // Extract search queries and results
+          if (metadata.webSearchQueries && metadata.webSearchQueries.length > 0) {
+            const searchQuery = metadata.webSearchQueries[0];
+            const searchResults: any[] = [];
+            
+            // Extract results from groundingChunks
+            if (metadata.groundingChunks) {
+              metadata.groundingChunks.forEach((chunk: any) => {
+                if (chunk.web) {
+                  searchResults.push({
+                    title: chunk.web.title || 'Unknown Source',
+                    url: chunk.web.uri || '',
+                    snippet: 'Web search result'
+                  });
+                }
+              });
+            }
+            
+            // Extract additional details from groundingSupports
+            if (metadata.groundingSupports) {
+              metadata.groundingSupports.forEach((support: any, index: number) => {
+                if (support.web) {
+                  // Update existing result or add new one
+                  const existingResult = searchResults.find(r => r.url === support.web.uri);
+                  if (existingResult) {
+                    existingResult.snippet = support.web.snippet || existingResult.snippet;
+                  } else {
+                    searchResults.push({
+                      title: support.web.title || 'Unknown Source',
+                      url: support.web.uri || '',
+                      snippet: support.web.snippet || 'Web search result'
+                    });
+                  }
+                }
+              });
+            }
+            
+            console.log('[AI DEBUG] Found search query:', searchQuery);
+            console.log('[AI DEBUG] Found search results:', searchResults.length);
+            
+            // Add search results to the response context
+            if (onToken && searchResults.length > 0) {
+              onToken('\n\n**Sources from web search:**\n');
+              searchResults.forEach((result: any, index: number) => {
+                onToken(`${index + 1}. [${result.title}](${result.url})\n`);
+                if (result.snippet && result.snippet !== 'Web search result') {
+                  onToken(`${result.snippet}\n\n`);
+                } else {
+                  onToken('\n');
+                }
+              });
+            }
+          }
+        }
+        
         // Break out of the loop - AI is done
         break;
       }
@@ -406,10 +466,7 @@ export async function streamAIResponse({
       if (onToken) onToken('[Maximum AI iterations reached]');
     }
 
-    // Process grounding metadata if web search was used (moved from old code)
-    if (webSearchEnabled) {
-      console.log('[AI DEBUG] Web search was enabled, but grounding metadata processing moved to individual iterations');
-    }
+
     
   } catch (error) {
     // Check if this is an abort error
