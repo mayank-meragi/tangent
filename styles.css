@@ -2151,3 +2151,24 @@ textarea:focus {
   border-radius: 4px;
   font-size: 10px;
 }
+
+/* Toggle Button Container with Spinner */
+.tangent-toggle-button-container {
+  position: relative;
+  display: inline-block;
+}
+
+.tangent-toggle-button-container .tangent-spinner-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--background-modifier-border);
+  border-top: 2px solid var(--color-blue);
+  border-radius: 50%;
+  animation: tangent-spin 1s linear infinite;
+  z-index: 1;
+}

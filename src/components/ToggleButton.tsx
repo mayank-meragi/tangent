@@ -12,6 +12,7 @@ interface ToggleButtonProps {
   enabledAriaLabel: string;
   disabledAriaLabel: string;
   size?: number;
+  showSpinner?: boolean;
 }
 
 const ToggleButton: React.FC<ToggleButtonProps> = ({
@@ -23,23 +24,32 @@ const ToggleButton: React.FC<ToggleButtonProps> = ({
   disabledTitle,
   enabledAriaLabel,
   disabledAriaLabel,
-  size = 14
+  size = 14,
+  showSpinner = false
 }) => {
   return (
-    <IconButton
-      icon={<LucidIcon name={iconName} size={size} />}
-      ariaLabel={isEnabled ? enabledAriaLabel : disabledAriaLabel}
-      onClick={onToggle}
-      disabled={disabled}
-      title={isEnabled ? enabledTitle : disabledTitle}
-      style={{
-        backgroundColor: isEnabled ? 'var(--background-modifier-hover)' : 'transparent',
-        color: isEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
-        border: isEnabled ? '1px solid var(--background-modifier-border)' : '1px solid transparent',
-        transition: 'all 0.2s ease',
-        opacity: disabled ? 0.6 : 1,
-      }}
-    />
+    <div className="tangent-toggle-button-container" style={{ position: 'relative' }}>
+      {/* Spinner background when showSpinner is true */}
+      {showSpinner && (
+        <div className="tangent-spinner-background" />
+      )}
+      <IconButton
+        icon={<LucidIcon name={iconName} size={size} />}
+        ariaLabel={isEnabled ? enabledAriaLabel : disabledAriaLabel}
+        onClick={onToggle}
+        disabled={disabled}
+        title={isEnabled ? enabledTitle : disabledTitle}
+        style={{
+          backgroundColor: isEnabled ? 'var(--background-modifier-hover)' : 'transparent',
+          color: isEnabled ? 'var(--text-accent)' : 'var(--text-faint)',
+          border: isEnabled ? '1px solid var(--background-modifier-border)' : '1px solid transparent',
+          transition: 'all 0.2s ease',
+          opacity: disabled ? 0.6 : 1,
+          position: 'relative',
+          zIndex: 2,
+        }}
+      />
+    </div>
   );
 };
 

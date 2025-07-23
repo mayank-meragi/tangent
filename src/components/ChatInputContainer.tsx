@@ -51,6 +51,8 @@ type ChatInputContainerProps = {
   onCancelStreaming?: () => void;
 };
 
+
+
 const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   selectedFiles,
   input,
@@ -306,6 +308,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
             disabledTitle="Web search disabled"
             enabledAriaLabel="Disable web search"
             disabledAriaLabel="Enable web search"
+            showSpinner={webSearchEnabled && isStreaming}
           />
         </div>
 
