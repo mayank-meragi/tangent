@@ -1337,7 +1337,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             {selectedPersona && messages.length > 0 && (
               <PersonaBadge 
                 persona={selectedPersona} 
-                onClear={handlePersonaClear} 
               />
             )}
 

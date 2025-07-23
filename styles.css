@@ -2495,23 +2495,7 @@ textarea:focus {
   color: var(--text-normal);
 }
 
-.tangent-persona-badge-clear {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
 
-.tangent-persona-badge-clear:hover {
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
 
 /* Persona Border for Chat Panel */
 .tangent-chat-panel-root.with-persona {
