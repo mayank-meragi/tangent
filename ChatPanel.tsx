@@ -731,10 +731,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       
       if (currentConversation) {
         // Update existing conversation
-        conversation = conversationService.updateConversation(currentConversation, messages, selectedPersona);
+        conversation = conversationService.updateConversation(currentConversation, messages, selectedPersona || undefined);
       } else {
         // Create new conversation
-        conversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona);
+        conversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
         setCurrentConversation(conversation);
       }
       
@@ -1312,7 +1312,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   return (
-    <div className={`tangent-chat-panel-root tangent-chat-panel-main ${selectedPersona ? 'with-persona' : ''}`}>
+    <div 
+      className={`tangent-chat-panel-root tangent-chat-panel-main ${selectedPersona ? 'with-persona' : ''}`}
+      style={selectedPersona ? { 
+        borderLeftColor: selectedPersona.color,
+        '--persona-color': selectedPersona.color
+      } as React.CSSProperties : {}}
+    >
       {/* Top Bar with Icon Buttons */}
       <div className="tangent-chat-panel-top-bar">
         <div className="tangent-chat-panel-title">TANGENT</div>

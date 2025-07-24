@@ -2499,7 +2499,7 @@ textarea:focus {
 
 /* Persona Border for Chat Panel */
 .tangent-chat-panel-root.with-persona {
-  border-left: 4px solid var(--interactive-accent);
+  border-left: 4px solid;
   position: relative;
 }
 
@@ -2510,7 +2510,7 @@ textarea:focus {
   left: 0;
   width: 4px;
   height: 100%;
-  background: var(--interactive-accent);
+  background: var(--persona-color, var(--interactive-accent));
   z-index: 1;
 }
 
