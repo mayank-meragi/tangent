@@ -136,10 +136,10 @@ export class UnifiedToolManager {
           },
           lineCount: {
             type: 'number',
-            description: 'The number of lines in the file (for validation)'
+            description: 'The number of lines in the file (optional, for informational purposes only)'
           }
         },
-        required: ['path', 'content', 'lineCount']
+        required: ['path', 'content']
       },
       execute: async (args: any, timeout?: number): Promise<ToolResult> => {
         try {

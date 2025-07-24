@@ -76,27 +76,18 @@ export const writeFileFunction: ToolFunction = {
       },
       lineCount: {
         type: 'number',
-        description: 'The number of lines in the file (for validation)'
+        description: 'The number of lines in the file (optional, for informational purposes only)'
       }
     },
-    required: ['path', 'content', 'lineCount']
+    required: ['path', 'content']
   },
   requiresConfirmation: true
 };
 
-export async function writeFile(app: App, args: { path: string; content: string; lineCount: number }): Promise<ToolResult> {
+export async function writeFile(app: App, args: { path: string; content: string; lineCount?: number }): Promise<ToolResult> {
   try {
-    const { path, content, lineCount } = args;
+    const { path, content } = args;
     const vault = app.vault;
-    
-    // Validate line count
-    const actualLineCount = content.split('\n').length;
-    if (actualLineCount !== lineCount) {
-      return {
-        type: 'error',
-        error: `Line count mismatch: expected ${lineCount}, got ${actualLineCount}`
-      };
-    }
     
     // Check if file exists
     const existingFile = vault.getAbstractFileByPath(path);
@@ -111,16 +102,18 @@ export async function writeFile(app: App, args: { path: string; content: string;
       }
       
       await vault.modify(existingFile, content);
+      const actualLineCount = content.split('\n').length;
       return {
         type: 'text',
-        text: `Successfully updated file: ${path} (${lineCount} lines)`
+        text: `Successfully updated file: ${path} (${actualLineCount} lines)`
       };
     } else {
       // File doesn't exist, create it
       await vault.create(path, content);
+      const actualLineCount = content.split('\n').length;
       return {
         type: 'text',
-        text: `Successfully created file: ${path} (${lineCount} lines)`
+        text: `Successfully created file: ${path} (${actualLineCount} lines)`
       };
     }
   } catch (error) {
