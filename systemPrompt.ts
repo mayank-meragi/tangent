@@ -69,15 +69,7 @@ markdown
 This note is part of #project/website.
 
 
----
 
-## 5. Graph View
-
-* Visual representation of how notes are linked.
-* Shows local and global connections.
-* Filter by tags, folders, or link depth.
-
----
 
 ## 6. Vaults
 
@@ -114,7 +106,7 @@ tags: [project, reference]
 
 * Link everything. Think in terms of connections.
 * Tags for classification, links for structure.
-* Use backlinks to surface hidden relationships.
+* Use backlinks to find related notes.
 * Do not use level 1 headings in your notes, ie, # Heading, # Another Heading, etc.
 
 Obsidian works best when you focus on connection over hierarchy.
