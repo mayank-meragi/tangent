@@ -1,6 +1,6 @@
 import { GenerateContentConfig, GoogleGenAI, Type } from '@google/genai';
 import { App } from 'obsidian';
-import { 
+import {
   PendingToolCall,
   ToolConfirmationResult,
 } from './tools';
@@ -79,34 +79,34 @@ export async function streamAIResponse({
     if (onToken) onToken('[Model ID not set]');
     return;
   }
-  
+
   try {
     // Initialize Google AI
     const genAI = new GoogleGenAI({ apiKey });
-    
+
     // Get the last user message
     const userMessages = messages.filter(msg => msg.role === 'user');
     const lastUserMessage = userMessages[userMessages.length - 1];
-    
+
     if (!lastUserMessage || !lastUserMessage.parts || lastUserMessage.parts.length === 0) {
       if (onToken) onToken('[No valid user message found]');
       return;
     }
-    
+
     // For the Google GenAI SDK, we need to send just the user's prompt
     const userPrompt = lastUserMessage.parts
       .filter(part => part.text)
       .map(part => part.text)
       .join(' ');
-    
+
     // Check if there are any files in the message
     const hasFiles = lastUserMessage.parts.some(part => part.inlineData);
-    
+
     if (!userPrompt.trim() && !hasFiles) {
       if (onToken) onToken('[Empty user message]');
       return;
     }
-    
+
     // --- DYNAMIC TOOL LOADING ---
     // Get all tools from the unifiedToolManager
     const allTools = unifiedToolManager?.getAllTools ? unifiedToolManager.getAllTools() : [];
@@ -167,7 +167,7 @@ export async function streamAIResponse({
     // Load memory content and add it as context
     const memoryService = new MemoryService(app);
     const memoryContent = await memoryService.readMemory();
-    
+
     // Convert our conversation messages to Gemini format
     const geminiContents = messages.map(msg => ({
       role: msg.role === 'system' ? 'user' : msg.role, // Gemini treats system as user
@@ -195,19 +195,38 @@ export async function streamAIResponse({
         return part;
       })
     }));
-    
+
+    // Debug logging for context files in AI processing
+    console.log('[AI CONTEXT DEBUG] Original messages count:', messages.length);
+    console.log('[AI CONTEXT DEBUG] Original messages structure:', messages.map(msg => ({
+      role: msg.role,
+      partsCount: msg.parts.length,
+      hasText: msg.parts.some(part => part.text),
+      hasInlineData: msg.parts.some(part => part.inlineData),
+      textContent: msg.parts.find(part => part.text)?.text?.substring(0, 100) + '...'
+    })));
+
+    console.log('[AI CONTEXT DEBUG] Gemini contents count:', geminiContents.length);
+    console.log('[AI CONTEXT DEBUG] Gemini contents structure:', geminiContents.map(msg => ({
+      role: msg.role,
+      partsCount: msg.parts.length,
+      hasText: msg.parts.some(part => part.text),
+      hasInlineData: msg.parts.some(part => part.inlineData),
+      textContent: msg.parts.find(part => part.text)?.text?.substring(0, 100) + '...'
+    })));
+
     // Add memory context if available
     if (memoryContent.trim()) {
       const memoryContext = {
         role: 'user' as const,
         parts: [{ text: `MEMORY CONTEXT:\n\n${memoryContent}\n\n---\n\nPlease consider the above memory context when responding.` }]
       };
-      
+
       // Insert memory context after system message but before other messages
-      const systemMessageIndex = geminiContents.findIndex(msg => 
+      const systemMessageIndex = geminiContents.findIndex(msg =>
         msg.parts.some(part => part.text && part.text.includes('You are an AI assistant'))
       );
-      
+
       if (systemMessageIndex !== -1) {
         geminiContents.splice(systemMessageIndex + 1, 0, memoryContext);
       } else {
@@ -221,22 +240,22 @@ export async function streamAIResponse({
       console.log('[AI DEBUG] Request cancelled before API call');
       return;
     }
-    
+
     // Simplified AI calling loop - inspired by user's pseudocode
     const currentMessages = [...geminiContents];
     const maxIterations = 10; // Prevent infinite loops
     let iteration = 0;
-    
+
     while (iteration < maxIterations) {
       iteration++;
       console.log(`[AI DEBUG] AI call iteration ${iteration}`);
-      
+
       // Check abort signal before each AI call
       if (abortController?.signal.aborted) {
         console.log('[AI DEBUG] Request cancelled before AI call');
         return;
       }
-      
+
       // Call AI with current messages
       console.log(`[AI DEBUG] Sending ${currentMessages.length} messages to AI in iteration ${iteration}:`, currentMessages.map(m => ({ role: m.role, parts: m.parts.length })));
       const response = await genAI.models.generateContentStream({
@@ -244,11 +263,11 @@ export async function streamAIResponse({
         contents: currentMessages,
         config: config
       });
-      
+
       // Collect the full response from the stream
       let fullResponse: any = null;
       let hasStreamedContent = false;
-      
+
       for await (const chunk of response) {
         // Check abort signal in each iteration
         if (abortController?.signal.aborted) {
@@ -265,7 +284,7 @@ export async function streamAIResponse({
           hasStreamedContent = true;
         }
       }
-      
+
       console.log('[AI DEBUG] Full response:', fullResponse);
       console.log('[AI DEBUG] Full response structure:', {
         hasFunctionCalls: !!fullResponse?.functionCalls,
@@ -282,27 +301,27 @@ export async function streamAIResponse({
         console.log('[AI DEBUG] Request cancelled before processing response');
         return;
       }
-      
+
       // Check if there are function calls
       if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {
         console.log(`[AI DEBUG] Found ${fullResponse.functionCalls.length} function calls`);
-        
+
         // Execute each function call
         for (const functionCall of fullResponse.functionCalls) {
           const { name, args } = functionCall;
           const normalizedArgs = normalizeDateRangeArgs(args || {});
-          
+
           console.log(`[AI DEBUG] Executing function: ${name} with args:`, normalizedArgs);
-          
+
           if (onToolCall && name) {
             onToolCall(name, normalizedArgs);
           }
-          
+
           // Check if tool requires confirmation
           if (!name) continue;
-          
+
           const requiresConfirmation = toolRequiresConfirmation[name] || false;
-          
+
           if (requiresConfirmation && onToolConfirmationNeeded) {
             const pendingTool: PendingToolCall = {
               id: `${name}-${Date.now()}`,
@@ -310,35 +329,35 @@ export async function streamAIResponse({
               args: normalizedArgs,
               requiresConfirmation: true
             };
-            
+
             const confirmationResult = await onToolConfirmationNeeded(pendingTool);
-            
+
             if (abortController?.signal.aborted) {
               console.log('[AI DEBUG] Request cancelled after tool confirmation');
               return;
             }
-            
+
             if (!confirmationResult.approved) {
               if (onToken) onToken(`[Tool execution cancelled by user: ${name}]`);
               continue;
             }
           }
-          
+
           // Execute the tool
           if (name && toolMap[name]) {
             try {
               const toolResult = await unifiedToolManager.callTool(toolMap[name].id, normalizedArgs || {});
               console.log(`[AI DEBUG] Tool result for ${name}:`, toolResult);
-              
+
               if (abortController?.signal.aborted) {
                 console.log('[AI DEBUG] Request cancelled after tool execution');
                 return;
               }
-              
+
               if (onToolResult) {
                 onToolResult(name, toolResult);
               }
-              
+
               // Create function response
               const responseContent = toolResult.type === 'success' ? toolResult.data : toolResult.error;
               const functionResponse = {
@@ -348,17 +367,17 @@ export async function streamAIResponse({
                   content: responseContent
                 }
               };
-              
+
               // Add function call and response to messages for next iteration
               currentMessages.push(
                 { role: 'model', parts: [{ functionCall: functionCall }] },
                 { role: 'user', parts: [{ functionResponse: functionResponse }] }
               );
-              
+
               console.log(`[AI DEBUG] Added function result to messages for ${name}`);
               console.log(`[AI DEBUG] Updated currentMessages length: ${currentMessages.length}`);
               console.log(`[AI DEBUG] Last two messages added:`, currentMessages.slice(-2));
-              
+
             } catch (error) {
               console.error('[AI DEBUG] Tool execution error:', error);
               if (onToken) onToken(`[Tool Error: ${error}]`);
@@ -368,20 +387,20 @@ export async function streamAIResponse({
             if (onToken) onToken(`[Unknown tool: ${name}]`);
           }
         }
-        
+
         // Continue to next iteration to let AI respond to tool results
         continue;
       } else {
         // No function calls, AI has finished responding
         console.log('[AI DEBUG] No function calls found, AI response complete');
-        
+
         // If we haven't streamed content, process the final response
         if (!hasStreamedContent && fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
           const responseParts = fullResponse.candidates[0].content.parts
             .filter((part: any) => (part as any).thought !== true && part.text)
             .map((part: any) => part.text)
             .join('');
-          
+
           if (responseParts) {
             console.log(`[AI DEBUG] Processing final response parts: "${responseParts}"`);
             onToken(responseParts);
@@ -397,17 +416,17 @@ export async function streamAIResponse({
         } else {
           console.log('[AI DEBUG] No response content found to process');
         }
-        
+
         // Process grounding metadata if web search was used
         if (webSearchEnabled && fullResponse?.candidates?.[0]?.groundingMetadata) {
           const metadata = fullResponse.candidates[0].groundingMetadata;
           console.log('[AI DEBUG] Processing grounding metadata:', metadata);
-          
+
           // Extract search queries and results
           if (metadata.webSearchQueries && metadata.webSearchQueries.length > 0) {
             const searchQuery = metadata.webSearchQueries[0];
             const searchResults: any[] = [];
-            
+
             // Extract results from groundingChunks
             if (metadata.groundingChunks) {
               metadata.groundingChunks.forEach((chunk: any) => {
@@ -420,7 +439,7 @@ export async function streamAIResponse({
                 }
               });
             }
-            
+
             // Extract additional details from groundingSupports
             if (metadata.groundingSupports) {
               metadata.groundingSupports.forEach((support: any, index: number) => {
@@ -439,40 +458,40 @@ export async function streamAIResponse({
                 }
               });
             }
-            
+
             console.log('[AI DEBUG] Found search query:', searchQuery);
             console.log('[AI DEBUG] Found search results:', searchResults.length);
-            
+
             // Store search results for the SearchResultsDisplay component
             // Don't add them to the message text - they'll be displayed separately
             console.log('[AI DEBUG] Search results will be displayed in SearchResultsDisplay component');
-            
+
             // Call the search results callback if provided
             if (onSearchResults && searchResults.length > 0) {
               onSearchResults(searchQuery, searchResults);
             }
           }
         }
-        
+
         // Break out of the loop - AI is done
         break;
       }
     }
-    
+
     if (iteration >= maxIterations) {
       console.log('[AI DEBUG] Maximum iterations reached, stopping');
       if (onToken) onToken('[Maximum AI iterations reached]');
     }
 
 
-    
+
   } catch (error) {
     // Check if this is an abort error
     if (error instanceof Error && error.name === 'AbortError') {
       console.log('[AI DEBUG] Request was cancelled');
       return;
     }
-    
+
     console.error('[AI DEBUG] Error in streamAIResponse:', error);
     if (onToken) onToken(`[Error: ${error}]`);
   }

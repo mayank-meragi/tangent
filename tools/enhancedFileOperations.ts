@@ -4,7 +4,13 @@ import { ToolResult, ToolFunction } from './types';
 // Enhanced readFile with line numbers
 export const readFileFunction: ToolFunction = {
   name: 'readFile',
-  description: 'Read the content of a file from the Obsidian vault with line numbers. Automatically extracts text from PDF and DOCX files. Returns content with line numbers prefixed for easy reference.',
+  description: `Read the content of a file from the Obsidian vault with line numbers. Returns content with line numbers prefixed for easy reference.
+  If the file is a PDF or DOCX file, it will be automatically extracted and returned as text.
+  
+  Guidelines:
+  - Read the file only if the contents of the file are not present in the conversation history.
+  
+  `,
   parameters: {
     type: 'object',
     properties: {
@@ -22,7 +28,7 @@ export async function readFile(app: App, args: { path: string }): Promise<ToolRe
   try {
     const { path } = args;
     const vault = app.vault;
-    
+
     // Try to get the file
     const file = vault.getAbstractFileByPath(path);
     if (!file) {
@@ -31,7 +37,7 @@ export async function readFile(app: App, args: { path: string }): Promise<ToolRe
         error: `File not found: ${path}`
       };
     }
-    
+
     // Check if it's actually a file (not a folder)
     if (!(file instanceof TFile)) {
       return {
@@ -39,14 +45,14 @@ export async function readFile(app: App, args: { path: string }): Promise<ToolRe
         error: `${path} is a folder, not a file`
       };
     }
-    
+
     // Read the file content
     const content = await vault.read(file);
-    
+
     // Add line numbers to the content
     const lines = content.split('\n');
     const numberedContent = lines.map((line, index) => `${index + 1} | ${line}`).join('\n');
-    
+
     return {
       type: 'text',
       text: numberedContent
@@ -88,10 +94,10 @@ export async function writeFile(app: App, args: { path: string; content: string;
   try {
     const { path, content } = args;
     const vault = app.vault;
-    
+
     // Check if file exists
     const existingFile = vault.getAbstractFileByPath(path);
-    
+
     if (existingFile) {
       // File exists, modify it
       if (!(existingFile instanceof TFile)) {
@@ -100,7 +106,7 @@ export async function writeFile(app: App, args: { path: string; content: string;
           error: `${path} is not a file`
         };
       }
-      
+
       await vault.modify(existingFile, content);
       const actualLineCount = content.split('\n').length;
       return {
@@ -164,7 +170,7 @@ export async function insertContent(app: App, args: { path: string; operations: 
     console.log('[insertContent] called with args:', JSON.stringify(args));
     const { path, operations } = args;
     const vault = app.vault;
-    
+
     // Get the file
     const file = vault.getAbstractFileByPath(path);
     console.log('[insertContent] file lookup:', file ? `Found file (${file.path})` : 'File not found');
@@ -175,16 +181,16 @@ export async function insertContent(app: App, args: { path: string; operations: 
         error: `File not found: ${path}`
       };
     }
-    
+
     // Read current content
     const currentContent = await vault.read(file);
     const lines = currentContent.split('\n');
     console.log(`[insertContent] Read file: ${path}, line count: ${lines.length}`);
-    
+
     // Sort operations by startLine in descending order to avoid line number shifts
     const sortedOperations = [...operations].sort((a, b) => b.startLine - a.startLine);
     console.log('[insertContent] Sorted operations:', JSON.stringify(sortedOperations));
-    
+
     // Apply insertions
     for (const operation of sortedOperations) {
       let { startLine } = operation;
@@ -208,13 +214,13 @@ export async function insertContent(app: App, args: { path: string; operations: 
       console.log(`[insertContent] Inserting at line ${startLine}:`, contentLines);
       lines.splice(startLine - 1, 0, ...contentLines);
     }
-    
+
     // Write back the modified content
     const newContent = lines.join('\n');
     console.log(`[insertContent] Writing modified content to file: ${path}, new line count: ${lines.length}`);
     await vault.modify(file, newContent);
     console.log('[insertContent] Successfully wrote modified content.');
-    
+
     return {
       type: 'text',
       text: `Successfully inserted content at ${operations.length} location(s) in ${path}`
@@ -283,7 +289,7 @@ export async function searchAndReplace(app: App, args: { path: string; operation
   try {
     const { path, operations } = args;
     const vault = app.vault;
-    
+
     // Get the file
     const file = vault.getAbstractFileByPath(path);
     if (!file || !(file instanceof TFile)) {
@@ -292,26 +298,26 @@ export async function searchAndReplace(app: App, args: { path: string; operation
         error: `File not found: ${path}`
       };
     }
-    
+
     // Read current content
     const currentContent = await vault.read(file);
     const lines = currentContent.split('\n');
-    
+
     let totalReplacements = 0;
-    
+
     // Apply each operation
     for (const operation of operations) {
       const { search, replace, startLine, endLine, useRegex = false, ignoreCase = false } = operation;
-      
+
       // Determine line range
       const start = startLine ? Math.max(1, startLine) : 1;
       const end = endLine ? Math.min(lines.length, endLine) : lines.length;
-      
+
       // Process lines in range
       for (let i = start - 1; i < end; i++) {
         const line = lines[i];
         let replacements = 0;
-        
+
         if (useRegex) {
           try {
             const flags = ignoreCase ? 'gi' : 'g';
@@ -330,24 +336,24 @@ export async function searchAndReplace(app: App, args: { path: string; operation
         } else {
           const searchText = ignoreCase ? search.toLowerCase() : search;
           const lineText = ignoreCase ? line.toLowerCase() : line;
-          
+
           if (lineText.includes(searchText)) {
-            const newLine = ignoreCase 
+            const newLine = ignoreCase
               ? line.replace(new RegExp(search, 'gi'), replace)
               : line.replace(new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replace);
             lines[i] = newLine;
             replacements++;
           }
         }
-        
+
         totalReplacements += replacements;
       }
     }
-    
+
     // Write back the modified content
     const newContent = lines.join('\n');
     await vault.modify(file, newContent);
-    
+
     return {
       type: 'text',
       text: `Successfully performed ${totalReplacements} replacement(s) in ${path}`
@@ -404,10 +410,10 @@ export async function manageFiles(app: App, args: { operations: Array<{ action: 
     const { operations } = args;
     const vault = app.vault;
     const results: string[] = [];
-    
+
     for (const operation of operations) {
       const { action, sourcePath, destinationPath, path } = operation;
-      
+
       try {
         switch (action) {
           case 'move': {
@@ -415,48 +421,48 @@ export async function manageFiles(app: App, args: { operations: Array<{ action: 
               results.push(`Error: move operation requires sourcePath and destinationPath`);
               continue;
             }
-            
+
             const sourceFile = vault.getAbstractFileByPath(sourcePath);
             if (!sourceFile) {
               results.push(`Error: Source file/folder not found: ${sourcePath}`);
               continue;
             }
-            
+
             await vault.rename(sourceFile, destinationPath);
             results.push(`Successfully moved: ${sourcePath} → ${destinationPath}`);
             break;
           }
-            
+
           case 'delete': {
             const deletePath = sourcePath || path;
             if (!deletePath) {
               results.push(`Error: delete operation requires sourcePath or path`);
               continue;
             }
-            
+
             const deleteFile = vault.getAbstractFileByPath(deletePath);
             if (!deleteFile) {
               results.push(`Error: File/folder not found: ${deletePath}`);
               continue;
             }
-            
+
             await vault.delete(deleteFile);
             results.push(`Successfully deleted: ${deletePath}`);
             break;
           }
-            
+
           case 'create_folder': {
             const folderPath = destinationPath || path;
             if (!folderPath) {
               results.push(`Error: create_folder operation requires destinationPath or path`);
               continue;
             }
-            
+
             await vault.createFolder(folderPath);
             results.push(`Successfully created folder: ${folderPath}`);
             break;
           }
-            
+
           default:
             results.push(`Error: Unknown action: ${action}`);
         }
@@ -464,7 +470,7 @@ export async function manageFiles(app: App, args: { operations: Array<{ action: 
         results.push(`Error in ${action} operation: ${error}`);
       }
     }
-    
+
     return {
       type: 'text',
       text: results.join('\n')
@@ -510,10 +516,10 @@ export async function listVaultFiles(app: App, args: { path?: string; search?: s
   try {
     const { path = '', search = '', type = 'all', recursive = false } = args;
     const vault = app.vault;
-    
+
     // Get all files and folders
     const files = vault.getAllLoadedFiles();
-    
+
     // Filter by path
     let filteredFiles = files.filter(file => {
       if (path) {
@@ -521,7 +527,7 @@ export async function listVaultFiles(app: App, args: { path?: string; search?: s
       }
       return true;
     });
-    
+
     // Filter by type
     if (type !== 'all') {
       filteredFiles = filteredFiles.filter(file => {
@@ -530,15 +536,15 @@ export async function listVaultFiles(app: App, args: { path?: string; search?: s
         return true;
       });
     }
-    
+
     // Filter by search term
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredFiles = filteredFiles.filter(file => 
+      filteredFiles = filteredFiles.filter(file =>
         file.name.toLowerCase().includes(searchLower)
       );
     }
-    
+
     // Filter by recursive option
     if (!recursive && path) {
       filteredFiles = filteredFiles.filter(file => {
@@ -546,7 +552,7 @@ export async function listVaultFiles(app: App, args: { path?: string; search?: s
         return !relativePath.includes('/') || relativePath.startsWith('/');
       });
     }
-    
+
     // Sort files and folders
     const sortedFiles = filteredFiles
       .map(file => ({
@@ -561,7 +567,7 @@ export async function listVaultFiles(app: App, args: { path?: string; search?: s
         }
         return a.name.localeCompare(b.name);
       });
-    
+
     return {
       type: 'file-list',
       files: sortedFiles
