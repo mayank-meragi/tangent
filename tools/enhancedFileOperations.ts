@@ -1,49 +1,146 @@
 import { App, TFile, TFolder } from 'obsidian';
 import { ToolResult, ToolFunction } from './types';
+import {
+  createDailyNote,
+  appHasDailyNotesPluginLoaded,
+  getAllDailyNotes,
+  getDailyNote
+} from 'obsidian-daily-notes-interface';
+import moment from 'moment';
+
+// Helper functions for daily notes
+async function getOrCreateDailyNote(app: App, date: string): Promise<TFile> {
+  // Check if daily notes plugin is loaded
+  if (!appHasDailyNotesPluginLoaded()) {
+    throw new Error('Daily Notes plugin is not enabled');
+  }
+
+  // Parse date string to moment object
+  const momentDate = moment(date, 'YYYY-MM-DD');
+  if (!momentDate.isValid()) {
+    throw new Error(`Invalid date format: ${date}. Use YYYY-MM-DD format.`);
+  }
+
+  // Get all daily notes for caching
+  const allDailyNotes = getAllDailyNotes();
+
+  // Try to get existing daily note
+  let dailyNote = getDailyNote(momentDate, allDailyNotes);
+
+  if (!dailyNote) {
+    // Create new daily note with automatic template application
+    dailyNote = await createDailyNote(momentDate);
+  }
+
+  return dailyNote;
+}
+
+function getExistingDailyNote(app: App, date: string): TFile | null {
+  if (!appHasDailyNotesPluginLoaded()) {
+    return null;
+  }
+
+  const momentDate = moment(date, 'YYYY-MM-DD');
+  if (!momentDate.isValid()) {
+    return null;
+  }
+
+  const allDailyNotes = getAllDailyNotes();
+  return getDailyNote(momentDate, allDailyNotes);
+}
 
 // Enhanced readFile with line numbers
 export const readFileFunction: ToolFunction = {
   name: 'readFile',
-  description: `Read the content of a file from the Obsidian vault with line numbers. Returns content with line numbers prefixed for easy reference.
-  If the file is a PDF or DOCX file, it will be automatically extracted and returned as text.
+  description: `Read the content of a file/daily note from the Obsidian vault with line numbers. 
+  Returns content with line numbers prefixed for easy reference.
+
+  Daily notes:
+  - If trying to get daily notes, set the isDailyNote parameter to true.
+  - Give the date in YYYY-MM-DD format.
+  - Daily notes for that date will be accessed if they exist.
+  - No need to specify the path parameter.
+
+  File operations:
+  - If trying to get a file, set the isDailyNote parameter to false.
+  - Give the path to the file.
+  - The path is relative to the vault root.
+  - No need to specify the date parameter.
   
   Guidelines:
-  - Read the file only if the contents of the file are not present in the conversation history.
+  - Read the file only if the contents of the file are not present in the 
+  conversation history.
   
   `,
   parameters: {
     type: 'object',
     properties: {
+      isDailyNote: {
+        type: 'boolean',
+        description: 'Whether to operate on a daily note'
+      },
+      date: {
+        type: 'string',
+        description: 'Date in YYYY-MM-DD format (required when isDailyNote is true)'
+      },
       path: {
         type: 'string',
-        description: 'The path to the file to read (relative to vault root)'
+        description: 'The path to the file to read (relative to vault root, required when isDailyNote is false)'
       }
     },
-    required: ['path']
+    required: ['isDailyNote']
   },
   requiresConfirmation: false
 };
 
-export async function readFile(app: App, args: { path: string }): Promise<ToolResult> {
+export async function readFile(app: App, args: { isDailyNote: boolean; date?: string; path?: string }): Promise<ToolResult> {
   try {
-    const { path } = args;
+    const { isDailyNote, date, path } = args;
     const vault = app.vault;
 
-    // Try to get the file
-    const file = vault.getAbstractFileByPath(path);
-    if (!file) {
-      return {
-        type: 'error',
-        error: `File not found: ${path}`
-      };
-    }
+    let file: TFile;
 
-    // Check if it's actually a file (not a folder)
-    if (!(file instanceof TFile)) {
-      return {
-        type: 'error',
-        error: `${path} is a folder, not a file`
-      };
+    if (isDailyNote) {
+      if (!date) {
+        return {
+          type: 'error',
+          error: 'Date is required when isDailyNote is true'
+        };
+      }
+
+      const dailyNote = getExistingDailyNote(app, date);
+      if (!dailyNote) {
+        return {
+          type: 'error',
+          error: `Daily note for ${date} does not exist. Use writeFile or insertContent to create it.`
+        };
+      }
+      file = dailyNote;
+    } else {
+      if (!path) {
+        return {
+          type: 'error',
+          error: 'Path is required when isDailyNote is false'
+        };
+      }
+
+      // Try to get the file
+      const abstractFile = vault.getAbstractFileByPath(path);
+      if (!abstractFile) {
+        return {
+          type: 'error',
+          error: `File not found: ${path}`
+        };
+      }
+
+      // Check if it's actually a file (not a folder)
+      if (!(abstractFile instanceof TFile)) {
+        return {
+          type: 'error',
+          error: `${path} is a folder, not a file`
+        };
+      }
+      file = abstractFile;
     }
 
     // Read the file content
@@ -68,13 +165,37 @@ export async function readFile(app: App, args: { path: string }): Promise<ToolRe
 // Enhanced writeFile with line count validation
 export const writeFileFunction: ToolFunction = {
   name: 'writeFile',
-  description: 'Write complete content to a file. If the file exists, it will be overwritten. If it doesn\'t exist, it will be created. Automatically creates any directories needed.',
+  description: `
+  Write complete content to a file. If the file exists, it will be overwritten. 
+  If it doesn't exist, it will be created. Automatically creates any directories needed. 
+  
+  Daily notes:
+  - If trying to get daily notes, set the isDailyNote parameter to true.
+  - Give the date in YYYY-MM-DD format.
+  - Daily notes for that date will be accessed, and if it doesn't exist, it will be created.
+  - No need to specify the path parameter.
+  
+  File operations:
+  - If trying to get a file, set the isDailyNote parameter to false.
+  - Give the path to the file.
+  - The path is relative to the vault root.
+  - No need to specify the date parameter.
+  
+  `,
   parameters: {
     type: 'object',
     properties: {
+      isDailyNote: {
+        type: 'boolean',
+        description: 'Whether to operate on a daily note'
+      },
+      date: {
+        type: 'string',
+        description: 'Date in YYYY-MM-DD format (required when isDailyNote is true)'
+      },
       path: {
         type: 'string',
-        description: 'The path to the file to write (relative to vault root)'
+        description: 'The path to the file to write (relative to vault root, required when isDailyNote is false)'
       },
       content: {
         type: 'string',
@@ -85,43 +206,75 @@ export const writeFileFunction: ToolFunction = {
         description: 'The number of lines in the file (optional, for informational purposes only)'
       }
     },
-    required: ['path', 'content']
+    required: ['isDailyNote', 'content']
   },
   requiresConfirmation: true
 };
 
-export async function writeFile(app: App, args: { path: string; content: string; lineCount?: number }): Promise<ToolResult> {
+export async function writeFile(app: App, args: { isDailyNote: boolean; date?: string; path?: string; content: string; lineCount?: number }): Promise<ToolResult> {
   try {
-    const { path, content } = args;
+    const { isDailyNote, date, path, content } = args;
     const vault = app.vault;
 
-    // Check if file exists
-    const existingFile = vault.getAbstractFileByPath(path);
+    let file: TFile;
+    let filePath: string;
 
-    if (existingFile) {
-      // File exists, modify it
-      if (!(existingFile instanceof TFile)) {
+    if (isDailyNote) {
+      if (!date) {
         return {
           type: 'error',
-          error: `${path} is not a file`
+          error: 'Date is required when isDailyNote is true'
         };
       }
 
-      await vault.modify(existingFile, content);
-      const actualLineCount = content.split('\n').length;
-      return {
-        type: 'text',
-        text: `Successfully updated file: ${path} (${actualLineCount} lines)`
-      };
+      try {
+        file = await getOrCreateDailyNote(app, date);
+        filePath = file.path;
+      } catch (error) {
+        return {
+          type: 'error',
+          error: `Error with daily note: ${error instanceof Error ? error.message : String(error)}`
+        };
+      }
     } else {
-      // File doesn't exist, create it
-      await vault.create(path, content);
-      const actualLineCount = content.split('\n').length;
-      return {
-        type: 'text',
-        text: `Successfully created file: ${path} (${actualLineCount} lines)`
-      };
+      if (!path) {
+        return {
+          type: 'error',
+          error: 'Path is required when isDailyNote is false'
+        };
+      }
+
+      // Check if file exists
+      const existingFile = vault.getAbstractFileByPath(path);
+
+      if (existingFile) {
+        // File exists, modify it
+        if (!(existingFile instanceof TFile)) {
+          return {
+            type: 'error',
+            error: `${path} is not a file`
+          };
+        }
+        file = existingFile;
+      } else {
+        // File doesn't exist, create it
+        await vault.create(path, content);
+        const actualLineCount = content.split('\n').length;
+        return {
+          type: 'text',
+          text: `Successfully created file: ${path} (${actualLineCount} lines)`
+        };
+      }
+      filePath = path;
     }
+
+    // Modify the file
+    await vault.modify(file, content);
+    const actualLineCount = content.split('\n').length;
+    return {
+      type: 'text',
+      text: `Successfully updated file: ${filePath} (${actualLineCount} lines)`
+    };
   } catch (error) {
     return {
       type: 'error',
@@ -133,13 +286,37 @@ export async function writeFile(app: App, args: { path: string; content: string;
 // New insertContent tool
 export const insertContentFunction: ToolFunction = {
   name: 'insertContent',
-  description: 'Insert content at specific line positions in a file. Allows precise insertions without overwriting existing content. Supports multiple insertions in a single operation.',
+  description: `
+  Insert content at specific line positions in a file. Allows precise insertions without overwriting existing content. 
+  Supports multiple insertions in a single operation. For daily notes, automatically creates with template if needed.
+
+  Daily notes:
+  - If trying to get daily notes, set the isDailyNote parameter to true.
+  - Give the date in YYYY-MM-DD format.
+  - Daily notes for that date will be accessed, and if it doesn't exist, it will be created.
+  - No need to specify the path parameter.
+
+  File operations:
+  - If trying to get a file, set the isDailyNote parameter to false.
+  - Give the path to the file.
+  - The path is relative to the vault root.
+  - No need to specify the date parameter.
+  
+  `,
   parameters: {
     type: 'object',
     properties: {
+      isDailyNote: {
+        type: 'boolean',
+        description: 'Whether to operate on a daily note'
+      },
+      date: {
+        type: 'string',
+        description: 'Date in YYYY-MM-DD format (required when isDailyNote is true)'
+      },
       path: {
         type: 'string',
-        description: 'The path to the file to insert content into'
+        description: 'The path to the file to insert content into (required when isDailyNote is false)'
       },
       operations: {
         type: 'array',
@@ -160,26 +337,56 @@ export const insertContentFunction: ToolFunction = {
         }
       }
     },
-    required: ['path', 'operations']
+    required: ['isDailyNote', 'operations']
   },
   requiresConfirmation: true
 };
 
-export async function insertContent(app: App, args: { path: string; operations: Array<{ startLine: number; content: string }> }): Promise<ToolResult> {
+export async function insertContent(app: App, args: { isDailyNote: boolean; date?: string; path?: string; operations: Array<{ startLine: number; content: string }> }): Promise<ToolResult> {
   try {
     console.log('[insertContent] called with args:', JSON.stringify(args));
-    const { path, operations } = args;
+    const { isDailyNote, date, path, operations } = args;
     const vault = app.vault;
 
-    // Get the file
-    const file = vault.getAbstractFileByPath(path);
-    console.log('[insertContent] file lookup:', file ? `Found file (${file.path})` : 'File not found');
-    if (!file || !(file instanceof TFile)) {
-      console.log('[insertContent] ERROR: File not found or not a TFile:', path);
-      return {
-        type: 'error',
-        error: `File not found: ${path}`
-      };
+    let file: TFile;
+
+    if (isDailyNote) {
+      if (!date) {
+        return {
+          type: 'error',
+          error: 'Date is required when isDailyNote is true'
+        };
+      }
+
+      try {
+        file = await getOrCreateDailyNote(app, date);
+        console.log('[insertContent] daily note lookup:', `Found file (${file.path})`);
+      } catch (error) {
+        console.log('[insertContent] ERROR: Daily note error:', error);
+        return {
+          type: 'error',
+          error: `Error with daily note: ${error instanceof Error ? error.message : String(error)}`
+        };
+      }
+    } else {
+      if (!path) {
+        return {
+          type: 'error',
+          error: 'Path is required when isDailyNote is false'
+        };
+      }
+
+      // Get the file
+      const abstractFile = vault.getAbstractFileByPath(path);
+      console.log('[insertContent] file lookup:', abstractFile ? `Found file (${abstractFile.path})` : 'File not found');
+      if (!abstractFile || !(abstractFile instanceof TFile)) {
+        console.log('[insertContent] ERROR: File not found or not a TFile:', path);
+        return {
+          type: 'error',
+          error: `File not found: ${path}`
+        };
+      }
+      file = abstractFile;
     }
 
     // Read current content
