@@ -1,3 +1,5 @@
+import { Persona } from './tools/types';
+
 export const systemPrompt = `You are an AI assistant whose job is to help the user with their questions.
 
 # Obsidian: How It Works
@@ -67,15 +69,7 @@ markdown
 This note is part of #project/website.
 
 
----
 
-## 5. Graph View
-
-* Visual representation of how notes are linked.
-* Shows local and global connections.
-* Filter by tags, folders, or link depth.
-
----
 
 ## 6. Vaults
 
@@ -112,7 +106,7 @@ tags: [project, reference]
 
 * Link everything. Think in terms of connections.
 * Tags for classification, links for structure.
-* Use backlinks to surface hidden relationships.
+* Use backlinks to find related notes.
 * Do not use level 1 headings in your notes, ie, # Heading, # Another Heading, etc.
 
 Obsidian works best when you focus on connection over hierarchy.
@@ -164,3 +158,19 @@ user with a message that you are using a tool to answer the question.
 
 Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
 `;
+
+/**
+ * Create a system prompt with optional persona integration
+ * @param persona Optional persona to integrate into the system prompt
+ * @returns Enhanced system prompt with persona instructions if provided
+ */
+export const createSystemPrompt = (persona?: Persona): string => {
+  if (persona) {
+    return `${systemPrompt}
+
+# Active Persona: ${persona.name}
+${persona.content}`;
+  }
+
+  return systemPrompt;
+};

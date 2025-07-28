@@ -3,10 +3,11 @@ import ReactMarkdown from 'react-markdown';
 import { MODEL_CONFIGS, ModelConfig } from './modelConfigs';
 import { useChatMessages, ChatMessagesProvider } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
-import { systemPrompt } from './systemPrompt';
+import { createSystemPrompt } from './systemPrompt';
 import { PendingToolCall, ToolConfirmationResult } from './tools';
 import { ConversationService, Conversation } from './conversationService';
 import { TemplateService } from './templateService';
+import { PersonaService } from './personaService';
 import HistoryTab from './HistoryTab';
 import IconButton from './src/components/IconButton';
 import ChatMessageContainer from './src/components/ChatMessageContainer';
@@ -15,12 +16,15 @@ import AIMessage from './src/components/AIMessage';
 import ChatInputContainer from './src/components/ChatInputContainer';
 import UserMessage from './src/components/UserMessage';
 import { UploadedFile, fileUploadService } from './FileUploadService';
-import { DropdownItem, ConversationTemplate } from './tools/types';
+import { DropdownItem, ConversationTemplate, TemplateSettings, Persona } from './tools/types';
 import { VariableInputModal } from './src/components/VariableInputModal';
+import TemplateSettingsPreview from './src/components/TemplateSettingsPreview';
+import PersonaSelector from './src/components/PersonaSelector';
+import PersonaBadge from './src/components/PersonaBadge';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController) => Promise<void>;
+  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController, onSearchResults?: (searchQuery: string, searchResults: any[]) => void) => Promise<void>;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -194,6 +198,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [showVariableModal, setShowVariableModal] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState<ConversationTemplate | null>(null);
 
+  // Persona-related state
+  const [personaService] = useState(() => new PersonaService(app));
+  const [selectedPersona, setSelectedPersona] = React.useState<Persona | null>(null);
+  const [personas, setPersonas] = React.useState<Persona[]>([]);
+  const [isPersonaSelectorVisible, setIsPersonaSelectorVisible] = React.useState(true);
+
   const [hasUserRemovedCurrentFile, setHasUserRemovedCurrentFile] = React.useState(false);
   const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -214,6 +224,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       setThinkingEnabled(selectedModel.defaultThinkingBudget > 0);
     }
   }, [selectedModel]);
+
+  // Load personas on component mount
+  useEffect(() => {
+    const loadPersonas = async () => {
+      try {
+        const allPersonas = await personaService.getAllPersonas();
+        setPersonas(allPersonas);
+      } catch (error) {
+        console.error('Failed to load personas:', error);
+      }
+    };
+    loadPersonas();
+  }, [personaService]);
+
+  // Persona selection handlers
+  const handlePersonaSelect = (persona: Persona) => {
+    setSelectedPersona(persona);
+  };
+
+  const handlePersonaClear = () => {
+    setSelectedPersona(null);
+  };
+
+  const handleFirstMessage = () => {
+    setIsPersonaSelectorVisible(false);
+  };
 
   // Calculate thinking budget based on enabled state
   const getThinkingBudget = () => {
@@ -323,7 +359,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           id: template.id,
           title: template.title,
           contentLength: template.content?.length,
-          variablesCount: template.variables?.length
+          variablesCount: template.variables?.length,
+          settings: template.settings
         });
         
         return {
@@ -385,6 +422,33 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
 
+
+  // Custom item renderer for template dropdown items
+  const templateItemRenderer = (item: DropdownItem, isSelected: boolean, isHighlighted: boolean) => {
+    const template = item.metadata?.template as ConversationTemplate;
+    
+    return (
+      <div className="dropdown-item-content">
+        {item.icon && (
+          <LucidIcon 
+            name={item.icon} 
+            size={16} 
+            className="dropdown-item-icon"
+          />
+        )}
+        <div className="dropdown-item-text">
+          <div className="dropdown-item-title">{item.title}</div>
+          {item.description && (
+            <div className="dropdown-item-description">{item.description}</div>
+          )}
+          <TemplateSettingsPreview settings={template?.settings} />
+        </div>
+        {item.category && (
+          <div className="dropdown-item-category">{item.category}</div>
+        )}
+      </div>
+    );
+  };
 
   // Function to handle template selection
   const handleTemplateSelect = async (template: ConversationTemplate) => {
@@ -473,8 +537,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   // Function to handle variable input confirmation
-  const handleVariableInputConfirm = (variables: Record<string, any>) => {
+  const handleVariableInputConfirm = (variables: Record<string, any>, settings: TemplateSettings) => {
     if (selectedTemplate) {
+      // Apply settings to chat state
+      if (settings.thinkingEnabled !== undefined) {
+        setThinkingEnabled(settings.thinkingEnabled);
+      }
+      
+      if (settings.webSearchEnabled !== undefined) {
+        setWebSearchEnabled(settings.webSearchEnabled);
+      }
+      
+      if (settings.modelId !== undefined) {
+        const newModel = MODEL_CONFIGS.find(m => m.id === settings.modelId);
+        if (newModel) {
+          setSelectedModel(newModel);
+        }
+      }
+      
       insertTemplateWithVariables(selectedTemplate, variables);
     }
     setShowVariableModal(false);
@@ -651,10 +731,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       
       if (currentConversation) {
         // Update existing conversation
-        conversation = conversationService.updateConversation(currentConversation, messages);
+        conversation = conversationService.updateConversation(currentConversation, messages, selectedPersona || undefined);
       } else {
         // Create new conversation
-        conversation = conversationService.createConversationFromMessages(messages);
+        conversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
         setCurrentConversation(conversation);
       }
       
@@ -667,6 +747,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const loadConversation = (conversation: Conversation) => {
     loadMessages(conversation.messages);
     setCurrentConversation(conversation);
+    
+    // Load the persona if it exists in the conversation
+    if (conversation.selectedPersona) {
+      setSelectedPersona(conversation.selectedPersona);
+      setIsPersonaSelectorVisible(false);
+    } else {
+      setSelectedPersona(null);
+      setIsPersonaSelectorVisible(messages.length === 0);
+    }
+    
     setActiveView('chat'); // Switch to chat view after loading conversation
     // Reset scroll state when loading conversation
     setUserHasScrolledUp(false);
@@ -826,7 +916,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     if (!conversationHistory.some(msg => msg.role === 'system')) {
       conversationHistory.unshift({
         role: 'system',
-        parts: [{ text: systemPrompt }]
+        parts: [{ text: createSystemPrompt(selectedPersona || undefined) }]
       });
     }
     
@@ -858,6 +948,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     let lastStreamingMessage = '';
     let streamingThinkingId: string | null = null;
     let lastStreamingThought = '';
+    let currentSearchQuery: string | null = null;
+    let currentSearchResults: any[] = [];
 
     try {
       await streamAIResponse(
@@ -975,7 +1067,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       },
       handleToolConfirmation,
       webSearchEnabled,
-      abortControllerRef.current // Pass the AbortController
+      abortControllerRef.current, // Pass the AbortController
+      (searchQuery: string, searchResults: any[]) => {
+        // Store search results for the current message
+        currentSearchQuery = searchQuery;
+        currentSearchResults = searchResults;
+        
+        // Update the current streaming message with search results
+        if (streamingMessageId) {
+          updateMessage(streamingMessageId, {
+            searchQuery: currentSearchQuery,
+            searchResults: currentSearchResults
+          });
+        }
+      }
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -1011,6 +1116,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   const sendMessage = async (messageText?: string, hideMessage?: boolean) => {
+    // Hide persona selector on first message
+    if (isPersonaSelectorVisible) {
+      handleFirstMessage();
+    }
+    
     const textToSend = messageText || input.trim();
     
     if (!textToSend && !hideMessage) return;
@@ -1030,7 +1140,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
     // Build conversation history
     const conversationHistory: ConversationMessage[] = [];
-    const systemMessage = systemPrompt;
+    const systemMessage = createSystemPrompt(selectedPersona || undefined);
     conversationHistory.push({
       role: 'system',
       parts: [{ text: systemMessage }]
@@ -1196,10 +1306,19 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setActiveView('chat');
     // Reset scroll state for new chat
     setUserHasScrolledUp(false);
+    // Reset persona state for new chat
+    setSelectedPersona(null);
+    setIsPersonaSelectorVisible(true);
   };
 
   return (
-    <div className="tangent-chat-panel-root tangent-chat-panel-main">
+    <div 
+      className={`tangent-chat-panel-root tangent-chat-panel-main ${selectedPersona ? 'with-persona' : ''}`}
+      style={selectedPersona ? { 
+        borderLeftColor: selectedPersona.color,
+        '--persona-color': selectedPersona.color
+      } as React.CSSProperties : {}}
+    >
       {/* Top Bar with Icon Buttons */}
       <div className="tangent-chat-panel-top-bar">
         <div className="tangent-chat-panel-title">TANGENT</div>
@@ -1230,6 +1349,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         <>
           {/* Messages */}
           <div className="tangent-chat-panel-messages" ref={messagesContainerRef}>
+            {/* Persona Badge */}
+            {selectedPersona && messages.length > 0 && (
+              <PersonaBadge 
+                persona={selectedPersona} 
+              />
+            )}
+
+            {/* Persona Selector - integrated into messages flow */}
+            {isPersonaSelectorVisible && messages.length === 0 && (
+              <PersonaSelector
+                personas={personas}
+                selectedPersona={selectedPersona}
+                onPersonaSelect={handlePersonaSelect}
+                onPersonaClear={handlePersonaClear}
+              />
+            )}
 
         {messages.map((msg, idx) => {
           if (msg.role === 'tool-call') {
@@ -1281,13 +1416,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                   showEdit={true}
                 />
               ) : isAI ? (
-                <AIMessage thought={msg.thought} message={msg.message} />
+                <AIMessage 
+                  thought={msg.thought} 
+                  message={msg.message} 
+                  searchQuery={msg.searchQuery}
+                  searchResults={msg.searchResults}
+                />
               ) : null}
             </ChatMessageContainer>
           );
         })}
         <div ref={messagesEndRef} />
       </div>
+
+
 
       {/* Input Area */}
       <div className="tangent-chat-panel-input-area">
@@ -1323,6 +1465,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           handleTemplateSelect={handleTemplateSelect}
           isLoadingTemplates={isLoadingTemplates}
           templateError={templateError}
+          templateItemRenderer={templateItemRenderer}
           // Web search props
           webSearchEnabled={webSearchEnabled}
           setWebSearchEnabled={setWebSearchEnabled}

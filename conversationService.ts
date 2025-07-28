@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { ChatMessage } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
+import { Persona } from './tools/types';
 
 export interface Conversation {
   id: string;
@@ -8,6 +9,7 @@ export interface Conversation {
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;
+  selectedPersona?: Persona;
 }
 
 export class ConversationService {
@@ -104,7 +106,7 @@ export class ConversationService {
     }
   }
 
-  createConversationFromMessages(messages: ChatMessage[], title?: string): Conversation {
+  createConversationFromMessages(messages: ChatMessage[], title?: string, selectedPersona?: Persona): Conversation {
     const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
     const now = new Date().toISOString();
     
@@ -121,15 +123,17 @@ export class ConversationService {
       title,
       messages: [...messages],
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      selectedPersona: selectedPersona || undefined
     };
   }
 
-  updateConversation(conversation: Conversation, messages: ChatMessage[]): Conversation {
+  updateConversation(conversation: Conversation, messages: ChatMessage[], selectedPersona?: Persona): Conversation {
     return {
       ...conversation,
       messages: [...messages],
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      selectedPersona: selectedPersona || conversation.selectedPersona
     };
   }
 

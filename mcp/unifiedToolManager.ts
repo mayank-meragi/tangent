@@ -1,7 +1,7 @@
 import { App } from 'obsidian';
-import { 
-  listVaultFiles, 
-  readFile, 
+import {
+  listVaultFiles,
+  readFile,
   writeFile,
   insertContent,
   searchAndReplace,
@@ -136,10 +136,10 @@ export class UnifiedToolManager {
           },
           lineCount: {
             type: 'number',
-            description: 'The number of lines in the file (for validation)'
+            description: 'The number of lines in the file (optional, for informational purposes only)'
           }
         },
-        required: ['path', 'content', 'lineCount']
+        required: ['path', 'content']
       },
       execute: async (args: any, timeout?: number): Promise<ToolResult> => {
         try {
@@ -558,212 +558,7 @@ export class UnifiedToolManager {
       }
     });
 
-    // Graph tools
-    // Query graph tool
-    this.builtinTools.set('query_graph', {
-      id: 'query_graph',
-      name: 'query_graph',
-      description: 'Search the knowledge graph for information across all labels and relationships',
-      type: 'builtin',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'What to search for (e.g., user movie preferences, John, basketball)'
-          },
-          labels: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Optional: specific labels to search in (e.g., [Person, Preference])'
-          },
-          relationshipTypes: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Optional: specific relationship types to include (e.g., [LIKES, KNOWS])'
-          },
-          maxDepth: {
-            type: 'number',
-            description: 'Maximum depth to traverse relationships (1-5)',
-            minimum: 1,
-            maximum: 5,
-            default: 2
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return',
-            default: 10
-          },
-          includeRelationships: {
-            type: 'boolean',
-            description: 'Whether to include relationship information in results',
-            default: true
-          }
-        },
-        required: ['query']
-      },
-      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
-        try {
-          // This tool is no longer available, so it will throw an error.
-          // This is a consequence of removing the queryGraph import.
-          throw new Error('query_graph tool is no longer available.');
-        } catch (error) {
-          return {
-            type: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          };
-        }
-      }
-    });
 
-    // List relationship types tool
-    this.builtinTools.set('list_relationship_types', {
-      id: 'list_relationship_types',
-      name: 'list_relationship_types',
-      description: 'Fetch all relationship types currently in the Neo4j database',
-      type: 'builtin',
-      inputSchema: {
-        type: 'object',
-        properties: {},
-        required: []
-      },
-      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
-        try {
-          // This tool is no longer available, so it will throw an error.
-          // This is a consequence of removing the listRelationshipTypes import.
-          throw new Error('list_relationship_types tool is no longer available.');
-        } catch (error) {
-          return {
-            type: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          };
-        }
-      }
-    });
-
-    // Graph search tool
-    this.builtinTools.set('graph_search', {
-      id: 'graph_search',
-      name: 'graph_search',
-      description: 'Search the knowledge graph using graph traversal to find related information',
-      type: 'builtin',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'What to search for'
-          },
-          maxDepth: {
-            type: 'number',
-            description: 'How many steps to traverse in the graph (1-5)',
-            minimum: 1,
-            maximum: 5,
-            default: 3
-          },
-          edgeTypes: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Types of relationships to follow'
-          },
-          minWeight: {
-            type: 'number',
-            description: 'Minimum relationship weight (0-1)',
-            minimum: 0,
-            maximum: 1,
-            default: 0.1
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results',
-            default: 10
-          }
-        },
-        required: ['query']
-      },
-      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
-        try {
-          // This tool is no longer available, so it will throw an error.
-          // This is a consequence of removing the graphSearch import.
-          throw new Error('graph_search tool is no longer available.');
-        } catch (error) {
-          return {
-            type: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          };
-        }
-      }
-    });
-
-    // Find path tool
-    this.builtinTools.set('find_path', {
-      id: 'find_path',
-      name: 'find_path',
-      description: 'Find the shortest path between two concepts in the knowledge graph',
-      type: 'builtin',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          from: {
-            type: 'string',
-            description: 'Starting concept or memory ID'
-          },
-          to: {
-            type: 'string',
-            description: 'Target concept or memory ID'
-          },
-          maxDepth: {
-            type: 'number',
-            description: 'Maximum path length to search',
-            default: 5
-          }
-        },
-        required: ['from', 'to']
-      },
-      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
-        try {
-          // This tool is no longer available, so it will throw an error.
-          // This is a consequence of removing the findPath import.
-          throw new Error('find_path tool is no longer available.');
-        } catch (error) {
-          return {
-            type: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          };
-        }
-      }
-    });
-
-    // Analyze graph tool
-    this.builtinTools.set('analyze_graph', {
-      id: 'analyze_graph',
-      name: 'analyze_graph',
-      description: 'Analyze the knowledge graph structure to find clusters and insights',
-      type: 'builtin',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          analysisType: {
-            type: 'string',
-            description: 'Type of analysis to perform',
-            enum: ['clusters', 'central_nodes', 'stats', 'all'],
-            default: 'all'
-          }
-        }
-      },
-      execute: async (args: any, timeout?: number): Promise<ToolResult> => {
-        try {
-          // This tool is no longer available, so it will throw an error.
-          // This is a consequence of removing the analyzeGraph import.
-          throw new Error('analyze_graph tool is no longer available.');
-        } catch (error) {
-          return {
-            type: 'error',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          };
-        }
-      }
-    });
 
     // Enhanced file operation tools
     // Insert content tool
@@ -1019,7 +814,7 @@ export class UnifiedToolManager {
 
   async callTool(toolId: string, args: any, timeout?: number): Promise<ToolResult> {
     console.log(`[UNIFIED DEBUG] Calling tool with ID: ${toolId}, args:`, args);
-    
+
     const tool = this.getTool(toolId);
     if (!tool) {
       console.log(`[UNIFIED DEBUG] Tool not found: ${toolId}`);
@@ -1039,14 +834,14 @@ export class UnifiedToolManager {
     if (!this.mcpClient) throw new Error('MCPClient not set');
     try {
       const tools = await this.mcpClient.listTools(serverName);
-      
+
       // Remove existing tools from this server
       for (const [toolId, tool] of this.mcpTools.entries()) {
         if (tool.serverName === serverName) {
           this.mcpTools.delete(toolId);
         }
       }
-      
+
       // Add new tools
       for (const tool of tools) {
         this.registerMCPTool(tool);

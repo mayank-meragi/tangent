@@ -43,12 +43,15 @@ type ChatInputContainerProps = {
   handleTemplateSelect: (template: ConversationTemplate) => void;
   isLoadingTemplates?: boolean;
   templateError?: string | null;
+  templateItemRenderer?: (item: DropdownItem, isSelected: boolean, isHighlighted: boolean) => React.ReactNode;
   // Web search props
   webSearchEnabled: boolean;
   setWebSearchEnabled: (enabled: boolean) => void;
   // Cancellation prop
   onCancelStreaming?: () => void;
 };
+
+
 
 const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   selectedFiles,
@@ -82,6 +85,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   handleTemplateSelect,
   isLoadingTemplates = false,
   templateError = null,
+  templateItemRenderer,
   // Web search props
   webSearchEnabled,
   setWebSearchEnabled,
@@ -249,6 +253,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
               selectedIndex={selectedTemplateIndex}
               onSelectedIndexChange={setSelectedTemplateIndex}
               onOpenChange={setShowTemplateDropdown}
+              itemRenderer={templateItemRenderer}
               aria-label="Template selection"
             />
           )}
@@ -303,6 +308,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
             disabledTitle="Web search disabled"
             enabledAriaLabel="Disable web search"
             disabledAriaLabel="Enable web search"
+            showSpinner={webSearchEnabled && isStreaming}
           />
         </div>
 
