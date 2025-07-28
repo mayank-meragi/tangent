@@ -5,6 +5,7 @@ interface ChatMessageContainerProps {
   children: React.ReactNode;
   timestamp?: string;
   style?: React.CSSProperties;
+  'data-message-id'?: string;
 }
 
 const ChatMessageContainer: React.FC<ChatMessageContainerProps> = ({
@@ -12,6 +13,7 @@ const ChatMessageContainer: React.FC<ChatMessageContainerProps> = ({
   children,
   timestamp,
   style = {},
+  'data-message-id': dataMessageId,
 }) => {
   return (
     <div
@@ -31,6 +33,7 @@ const ChatMessageContainer: React.FC<ChatMessageContainerProps> = ({
         ...style,
       }}
       className={isUser ? 'user-message-container' : 'ai-message-wrapper'}
+      data-message-id={dataMessageId}
     >
       {children}
       {timestamp && (

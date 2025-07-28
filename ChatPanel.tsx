@@ -156,19 +156,19 @@ const ToolConfirmationCard: React.FC<{
 };
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResponse, app, unifiedToolManager }) => {
-  const { 
-    messages, 
-    addMessage, 
+  const {
+    messages,
+    addMessage,
     updateMessage,
     removeMessagesAfter,
-    addToolCall, 
-    addToolResult, 
+    addToolCall,
+    addToolResult,
     loadMessages,
     addPendingToolConfirmation,
     resolvePendingToolConfirmation,
     clearMessages
   } = useChatMessages();
-  
+
   // History-related state
   const [conversationService] = useState(() => new ConversationService(app));
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
@@ -177,16 +177,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [selectedModel, setSelectedModel] = React.useState<ModelConfig>(MODEL_CONFIGS[0]);
   const [thinkingEnabled, setThinkingEnabled] = React.useState<boolean>((selectedModel.defaultThinkingBudget || 0) > 0);
-  const [selectedFiles, setSelectedFiles] = React.useState<{name: string, content: string, path: string, isCurrentFile?: boolean}[]>([]);
+  const [selectedFiles, setSelectedFiles] = React.useState<{ name: string, content: string, path: string, isCurrentFile?: boolean }[]>([]);
   const [showFileDropdown, setShowFileDropdown] = React.useState(false);
-  const [availableFiles, setAvailableFiles] = React.useState<{name: string, path: string}[]>([]);
+  const [availableFiles, setAvailableFiles] = React.useState<{ name: string, path: string }[]>([]);
   const [atMentionQuery, setAtMentionQuery] = React.useState('');
   const [selectedFileIndex, setSelectedFileIndex] = React.useState(0);
   // File upload state
   const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFile[]>([]);
   // Web search state
   const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
-  
+
   // Template-related state
   const [templateService] = useState(() => new TemplateService(app));
   const [showTemplateDropdown, setShowTemplateDropdown] = React.useState(false);
@@ -214,8 +214,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const abortControllerRef = useRef<AbortController | null>(null);
   // State for which view is active
   const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
-  // Smart scrolling state
-  const [userHasScrolledUp, setUserHasScrolledUp] = React.useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Update thinking enabled state when model changes
@@ -271,7 +269,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     return new Promise((resolve) => {
       // Add pending confirmation to context
       addPendingToolConfirmation(pendingTool);
-      
+
       // Set up a resolver for this specific tool call
       const confirmationResolver = (approved: boolean) => {
         resolvePendingToolConfirmation(pendingTool.id, approved);
@@ -280,7 +278,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           toolCallId: pendingTool.id
         });
       };
-      
+
       // Store resolver temporarily (we'll use it in the component)
       (window as any)[`confirmationResolver_${pendingTool.id}`] = confirmationResolver;
     });
@@ -292,7 +290,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
       const maxHeight = 200; // Match the maxHeight in ChatInputContainer
-      
+
       if (scrollHeight <= maxHeight) {
         // Content fits within max height, auto-resize
         textareaRef.current.style.height = scrollHeight + 'px';
@@ -308,20 +306,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     currentMessagesRef.current = messages;
   }, [messages]);
 
-  // Smart scrolling: detect if user has scrolled up
-  useEffect(() => {
-    const messagesContainer = messagesContainerRef.current;
-    if (!messagesContainer) return;
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px threshold
-      setUserHasScrolledUp(!isAtBottom);
-    };
-
-    messagesContainer.addEventListener('scroll', handleScroll);
-    return () => messagesContainer.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Initialize template service
   useEffect(() => {
@@ -340,7 +325,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         setIsLoadingTemplates(false);
       }
     };
-    
+
     initializeTemplates();
   }, [templateService]);
 
@@ -349,11 +334,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     try {
       setIsLoadingTemplates(true);
       setTemplateError(null);
-      
+
       console.log('Fetching templates from service...');
       const templates = await templateService.getAllTemplates();
       console.log('Raw templates from service:', templates);
-      
+
       const templateDropdownItems: DropdownItem[] = templates.map(template => {
         console.log('Processing template:', {
           id: template.id,
@@ -362,7 +347,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           variablesCount: template.variables?.length,
           settings: template.settings
         });
-        
+
         return {
           id: template.id,
           title: template.title,
@@ -372,7 +357,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           metadata: { template }
         };
       });
-      
+
       console.log('Created dropdown items:', templateDropdownItems);
       setTemplateItems(templateDropdownItems.slice(0, 5)); // Limit to 5 for initial display
     } catch (error) {
@@ -412,7 +397,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         icon: 'message-square',
         metadata: { template: result.template }
       }));
-      
+
       setTemplateItems(searchDropdownItems);
     } catch (error) {
       console.error('Error filtering templates:', error);
@@ -426,13 +411,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // Custom item renderer for template dropdown items
   const templateItemRenderer = (item: DropdownItem, isSelected: boolean, isHighlighted: boolean) => {
     const template = item.metadata?.template as ConversationTemplate;
-    
+
     return (
       <div className="dropdown-item-content">
         {item.icon && (
-          <LucidIcon 
-            name={item.icon} 
-            size={16} 
+          <LucidIcon
+            name={item.icon}
+            size={16}
             className="dropdown-item-icon"
           />
         )}
@@ -454,23 +439,23 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const handleTemplateSelect = async (template: ConversationTemplate) => {
     try {
       setTemplateError(null);
-      
+
       // Validate template structure
       if (!template || typeof template !== 'object') {
         throw new Error('Invalid template object');
       }
-      
+
       if (!template.content || typeof template.content !== 'string') {
         throw new Error('Template content is missing or invalid');
       }
-      
+
       console.log('Processing template:', {
         id: template.id,
         title: template.title,
         contentLength: template.content.length,
         variables: template.variables
       });
-      
+
       // Check if template has variables that need user input
       if (template.variables && template.variables.length > 0) {
         // Show variable input modal
@@ -503,7 +488,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       const slashIndex = input.lastIndexOf('/');
       const beforeSlash = input.slice(0, slashIndex);
       const afterQuery = input.slice(slashIndex + 1 + slashTemplateQuery.length);
-      
+
       // Process template content with provided variable values
       let processedContent = template.content;
       if (template.variables) {
@@ -514,10 +499,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           processedContent = processedContent.replace(new RegExp(placeholder, 'g'), replacement);
         });
       }
-      
+
       const newInput = beforeSlash + processedContent + afterQuery;
       setInput(newInput);
-      
+
       // Focus the textarea after template insertion
       setTimeout(() => {
         if (textareaRef.current) {
@@ -527,7 +512,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
         }
       }, 0);
-      
+
       // Track template usage (optional)
       console.log(`Template used: ${template.title} (${template.id})`);
     } catch (error) {
@@ -543,18 +528,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       if (settings.thinkingEnabled !== undefined) {
         setThinkingEnabled(settings.thinkingEnabled);
       }
-      
+
       if (settings.webSearchEnabled !== undefined) {
         setWebSearchEnabled(settings.webSearchEnabled);
       }
-      
+
       if (settings.modelId !== undefined) {
         const newModel = MODEL_CONFIGS.find(m => m.id === settings.modelId);
         if (newModel) {
           setSelectedModel(newModel);
         }
       }
-      
+
       insertTemplateWithVariables(selectedTemplate, variables);
     }
     setShowVariableModal(false);
@@ -577,7 +562,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     if (hasUserRemovedCurrentFile) {
       return;
     }
-    
+
     try {
       const activeFile = app.workspace.getActiveFile();
       if (activeFile) {
@@ -588,7 +573,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           path: activeFile.path,
           isCurrentFile: true
         };
-        
+
         // Remove any existing current file and add the new one
         setSelectedFiles(prev => [
           currentFile,
@@ -625,23 +610,23 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       const file = app.vault.getAbstractFileByPath(filePath);
       if (file && 'path' in file && file.path.endsWith('.md')) {
         const content = await app.vault.read(file as any);
-        
+
         // Check if this is the current active file being added back
         const activeFile = app.workspace.getActiveFile();
         const isCurrentFile = activeFile && activeFile.path === filePath;
-        
+
         const newFile = {
           name: (file as any).name,
           content: content,
           path: (file as any).path,
           isCurrentFile: isCurrentFile
         };
-        
+
         if (isCurrentFile) {
           // Reset the flag since user is manually adding current file back
           setHasUserRemovedCurrentFile(false);
         }
-        
+
         // Check if file is already selected
         if (!selectedFiles.some(f => f.path === filePath)) {
           setSelectedFiles(prev => [...prev, newFile]);
@@ -685,29 +670,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           mimeType: file.type || 'application/octet-stream',
           status: 'uploading'
         };
-        
+
         setUploadedFiles(prev => [...prev, uploadingFile]);
 
         // Encode file
         const encodedFile = await fileUploadService.encodeFile(file);
-        
+
         // Update file with encoded data
         const readyFile: UploadedFile = {
           ...uploadingFile,
           ...encodedFile,
           status: 'ready'
         };
-        
-        setUploadedFiles(prev => 
+
+        setUploadedFiles(prev =>
           prev.map(f => f.id === uploadingFile.id ? readyFile : f)
         );
       } catch (error) {
         console.error('Error processing file:', error);
-        
+
         // Update file with error status
-        setUploadedFiles(prev => 
-          prev.map(f => 
-            f.name === file.name && f.status === 'uploading' 
+        setUploadedFiles(prev =>
+          prev.map(f =>
+            f.name === file.name && f.status === 'uploading'
               ? { ...f, status: 'error', error: 'Failed to process file' }
               : f
           )
@@ -725,10 +710,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // History-related functions
   const saveCurrentConversation = async () => {
     if (messages.length === 0) return;
-    
+
     try {
       let conversation: Conversation;
-      
+
       if (currentConversation) {
         // Update existing conversation
         conversation = conversationService.updateConversation(currentConversation, messages, selectedPersona || undefined);
@@ -737,7 +722,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         conversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
         setCurrentConversation(conversation);
       }
-      
+
       await conversationService.saveConversation(conversation);
     } catch (error) {
       console.error('Failed to save conversation:', error);
@@ -747,7 +732,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const loadConversation = (conversation: Conversation) => {
     loadMessages(conversation.messages);
     setCurrentConversation(conversation);
-    
+
     // Load the persona if it exists in the conversation
     if (conversation.selectedPersona) {
       setSelectedPersona(conversation.selectedPersona);
@@ -756,10 +741,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       setSelectedPersona(null);
       setIsPersonaSelectorVisible(messages.length === 0);
     }
-    
+
     setActiveView('chat'); // Switch to chat view after loading conversation
-    // Reset scroll state when loading conversation
-    setUserHasScrolledUp(false);
+
   };
 
   // Auto-save conversation when messages change
@@ -768,7 +752,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       const timeoutId = setTimeout(() => {
         saveCurrentConversation();
       }, 2000); // Save after 2 seconds of inactivity
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [messages, autoSaveEnabled, isStreaming]);
@@ -778,10 +762,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     // Remove file context from the content if it exists
     const cleanContent = currentContent.replace(/\n\n\*📎 Context: .*\*$/, '');
     setInput(cleanContent);
-    
+
     // Store the message ID for editing - we'll remove messages only when sending
     setEditingMessageId(messageId);
-    
+
     // Focus the textarea
     setTimeout(() => {
       textareaRef.current?.focus();
@@ -798,25 +782,25 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
-    
+
     // Auto-resize the textarea
     autoResizeTextarea();
-    
+
     // Don't show dropdown if we just selected a file
     if (justSelectedFileRef.current) {
       return;
     }
-    
+
     // Check for @ mention (files)
     const atIndex = value.lastIndexOf('@');
     if (atIndex !== -1) {
       const query = value.slice(atIndex + 1);
       const beforeAt = value.slice(0, atIndex);
-      
+
       // Only show dropdown if @ is at start or after space AND query doesn't end with .md
       const isComplete = query.endsWith('.md') || query.includes(' ');
       const shouldShow = (atIndex === 0 || beforeAt.endsWith(' ')) && !isComplete;
-      
+
       if (shouldShow) {
         setAtMentionQuery(query);
         // Fetch fresh file list every time @ dropdown is shown
@@ -830,17 +814,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     } else {
       setShowFileDropdown(false);
     }
-    
+
     // Check for / mention (templates)
     const slashIndex = value.lastIndexOf('/');
     if (slashIndex !== -1) {
       const query = value.slice(slashIndex + 1);
       const beforeSlash = value.slice(0, slashIndex);
-      
+
       // Only show dropdown if / is at start or after space AND query doesn't include space
       const isComplete = query.includes(' ');
       const shouldShow = (slashIndex === 0 || beforeSlash.endsWith(' ')) && !isComplete;
-      
+
       if (shouldShow) {
         setSlashTemplateQuery(query);
         // Filter templates based on query
@@ -859,17 +843,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
   // Handle file selection from dropdown
-  const handleFileSelect = async (file: {name: string, path: string}) => {
+  const handleFileSelect = async (file: { name: string, path: string }) => {
     justSelectedFileRef.current = true;
     await addFileToContext(file.path);
-    
+
     // Replace the @query with the file name
     const atIndex = input.lastIndexOf('@');
     const beforeAt = input.slice(0, atIndex);
     const afterQuery = input.slice(atIndex + 1 + atMentionQuery.length);
     setInput(beforeAt + file.name + afterQuery);
     setShowFileDropdown(false);
-    
+
     // Clear the flag after a brief delay to allow for input processing
     setTimeout(() => {
       justSelectedFileRef.current = false;
@@ -904,14 +888,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
     if (isStreaming) return;
-    
+
     // Create new AbortController for this request
     abortControllerRef.current = new AbortController();
-    
+
     const currentMessages = currentMessagesRef.current;
     const conversationHistory = existingConversationHistory || [];
     const processedCount = processedMessageCount || 0;
-    
+
     // Add system message if not already present
     if (!conversationHistory.some(msg => msg.role === 'system')) {
       conversationHistory.unshift({
@@ -919,31 +903,31 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         parts: [{ text: createSystemPrompt(selectedPersona || undefined) }]
       });
     }
-    
-         // Add unprocessed messages to conversation history
-     const messagesToProcess = currentMessages.slice(processedCount);
-     for (const msg of messagesToProcess) {
-       if (msg.role === 'tool-call' || msg.role === 'tool-result') {
-         // Skip tool messages - they are handled separately
-         continue;
-       } else if ((msg as any).role === 'thinking') {
-         // Skip thinking messages - they are display only
-         continue;
-       } else if (msg.role === 'user') {
-         conversationHistory.push({
-           role: 'user',
-           parts: [{ text: msg.content }]
-         });
-       } else if (msg.role === 'ai') {
-         conversationHistory.push({
-           role: 'model',
-           parts: [{ text: msg.message }]
-         });
-       }
-     }
-    
-    
-    
+
+    // Add unprocessed messages to conversation history
+    const messagesToProcess = currentMessages.slice(processedCount);
+    for (const msg of messagesToProcess) {
+      if (msg.role === 'tool-call' || msg.role === 'tool-result') {
+        // Skip tool messages - they are handled separately
+        continue;
+      } else if ((msg as any).role === 'thinking') {
+        // Skip thinking messages - they are display only
+        continue;
+      } else if (msg.role === 'user') {
+        conversationHistory.push({
+          role: 'user',
+          parts: [{ text: msg.content }]
+        });
+      } else if (msg.role === 'ai') {
+        conversationHistory.push({
+          role: 'model',
+          parts: [{ text: msg.message }]
+        });
+      }
+    }
+
+
+
     let streamingMessageId: string | null = null;
     let lastStreamingMessage = '';
     let streamingThinkingId: string | null = null;
@@ -955,153 +939,153 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       await streamAIResponse(
         '', // Empty prompt since we're using conversation history
         (tokenOrChunk: any) => {
-        if (typeof tokenOrChunk === 'string') {
-          if (streamingMessageId) {
-            lastStreamingMessage += tokenOrChunk;
-            updateMessage(streamingMessageId, { message: lastStreamingMessage });
-          } else {
-            streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-            lastStreamingMessage = tokenOrChunk;
-            addMessage({
-              id: streamingMessageId,
-              role: 'ai',
-              message: lastStreamingMessage,
-              thought: '',
-              streaming: true,
-              timestamp: formatTimestamp()
-            });
-          }
-        } else if (tokenOrChunk && typeof tokenOrChunk === 'object' && Array.isArray(tokenOrChunk.candidates)) {
-          const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
-          for (const part of parts) {
-            if (part.thought === true && part.text) {
-              if (streamingThinkingId) {
-                lastStreamingThought += part.text;
-                updateMessage(streamingThinkingId, { thought: lastStreamingThought });
-              } else {
-                streamingThinkingId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-                lastStreamingThought = part.text;
-                addMessage({
-                  id: streamingThinkingId,
-                  role: 'ai',
-                  message: '',
-                  thought: lastStreamingThought,
-                  streaming: true,
-                  timestamp: formatTimestamp()
-                });
-              }
-            } else if (part.text) {
-              if (streamingMessageId) {
-                lastStreamingMessage += part.text;
-                updateMessage(streamingMessageId, { message: lastStreamingMessage });
-              } else {
-                streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-                lastStreamingMessage = part.text;
-                addMessage({
-                  id: streamingMessageId,
-                  role: 'ai',
-                  message: lastStreamingMessage,
-                  thought: '',
-                  streaming: true,
-                  timestamp: formatTimestamp()
-                });
+          if (typeof tokenOrChunk === 'string') {
+            if (streamingMessageId) {
+              lastStreamingMessage += tokenOrChunk;
+              updateMessage(streamingMessageId, { message: lastStreamingMessage });
+            } else {
+              streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+              lastStreamingMessage = tokenOrChunk;
+              addMessage({
+                id: streamingMessageId,
+                role: 'ai',
+                message: lastStreamingMessage,
+                thought: '',
+                streaming: true,
+                timestamp: formatTimestamp()
+              });
+            }
+          } else if (tokenOrChunk && typeof tokenOrChunk === 'object' && Array.isArray(tokenOrChunk.candidates)) {
+            const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
+            for (const part of parts) {
+              if (part.thought === true && part.text) {
+                if (streamingThinkingId) {
+                  lastStreamingThought += part.text;
+                  updateMessage(streamingThinkingId, { thought: lastStreamingThought });
+                } else {
+                  streamingThinkingId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+                  lastStreamingThought = part.text;
+                  addMessage({
+                    id: streamingThinkingId,
+                    role: 'ai',
+                    message: '',
+                    thought: lastStreamingThought,
+                    streaming: true,
+                    timestamp: formatTimestamp()
+                  });
+                }
+              } else if (part.text) {
+                if (streamingMessageId) {
+                  lastStreamingMessage += part.text;
+                  updateMessage(streamingMessageId, { message: lastStreamingMessage });
+                } else {
+                  streamingMessageId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+                  lastStreamingMessage = part.text;
+                  addMessage({
+                    id: streamingMessageId,
+                    role: 'ai',
+                    message: lastStreamingMessage,
+                    thought: '',
+                    streaming: true,
+                    timestamp: formatTimestamp()
+                  });
+                }
               }
             }
           }
-        }
-      },
-      selectedModel.id,
-      (toolName: string, toolArgs: any) => {
-        // Finalize the current streaming AI message before tool call
-        if (streamingMessageId) {
-          updateMessage(streamingMessageId, { streaming: false });
-          streamingMessageId = null;
-          lastStreamingMessage = '';
-        }
-        if (streamingThinkingId) {
-          updateMessage(streamingThinkingId, { streaming: false });
-          streamingThinkingId = null;
-          lastStreamingThought = '';
-        }
-        addToolCall(toolName, toolArgs);
-      },
-      (toolName: string, result: any) => {
-        addToolResult(toolName, result);
-      },
-      (toolResults: string) => {
-        // Mark streaming as complete for the last message
-        if (streamingMessageId) {
-          updateMessage(streamingMessageId, {
-            streaming: false
-          });
-          streamingMessageId = null;
-          lastStreamingMessage = '';
-        }
-        if (streamingThinkingId) {
-          updateMessage(streamingThinkingId, { streaming: false });
-          streamingThinkingId = null;
-          lastStreamingThought = '';
-        }
-      },
-      conversationHistory,
-      getThinkingBudget(),
-      (thoughts: string) => {
-        // Only add non-generic thinking messages as new messages
-        if (!/^🧠 The model used \d+ thinking tokens/.test(thoughts)) {
+        },
+        selectedModel.id,
+        (toolName: string, toolArgs: any) => {
+          // Finalize the current streaming AI message before tool call
+          if (streamingMessageId) {
+            updateMessage(streamingMessageId, { streaming: false });
+            streamingMessageId = null;
+            lastStreamingMessage = '';
+          }
           if (streamingThinkingId) {
-            lastStreamingThought += thoughts;
-            updateMessage(streamingThinkingId, { thought: lastStreamingThought });
-          } else {
-            streamingThinkingId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-            lastStreamingThought = thoughts;
-            addMessage({
-              id: streamingThinkingId,
-              role: 'ai',
-              message: '',
-              thought: lastStreamingThought,
-              streaming: true,
-              timestamp: formatTimestamp()
+            updateMessage(streamingThinkingId, { streaming: false });
+            streamingThinkingId = null;
+            lastStreamingThought = '';
+          }
+          addToolCall(toolName, toolArgs);
+        },
+        (toolName: string, result: any) => {
+          addToolResult(toolName, result);
+        },
+        (toolResults: string) => {
+          // Mark streaming as complete for the last message
+          if (streamingMessageId) {
+            updateMessage(streamingMessageId, {
+              streaming: false
+            });
+            streamingMessageId = null;
+            lastStreamingMessage = '';
+          }
+          if (streamingThinkingId) {
+            updateMessage(streamingThinkingId, { streaming: false });
+            streamingThinkingId = null;
+            lastStreamingThought = '';
+          }
+        },
+        conversationHistory,
+        getThinkingBudget(),
+        (thoughts: string) => {
+          // Only add non-generic thinking messages as new messages
+          if (!/^🧠 The model used \d+ thinking tokens/.test(thoughts)) {
+            if (streamingThinkingId) {
+              lastStreamingThought += thoughts;
+              updateMessage(streamingThinkingId, { thought: lastStreamingThought });
+            } else {
+              streamingThinkingId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+              lastStreamingThought = thoughts;
+              addMessage({
+                id: streamingThinkingId,
+                role: 'ai',
+                message: '',
+                thought: lastStreamingThought,
+                streaming: true,
+                timestamp: formatTimestamp()
+              });
+            }
+          }
+        },
+        handleToolConfirmation,
+        webSearchEnabled,
+        abortControllerRef.current, // Pass the AbortController
+        (searchQuery: string, searchResults: any[]) => {
+          // Store search results for the current message
+          currentSearchQuery = searchQuery;
+          currentSearchResults = searchResults;
+
+          // Update the current streaming message with search results
+          if (streamingMessageId) {
+            updateMessage(streamingMessageId, {
+              searchQuery: currentSearchQuery,
+              searchResults: currentSearchResults
             });
           }
         }
-      },
-      handleToolConfirmation,
-      webSearchEnabled,
-      abortControllerRef.current, // Pass the AbortController
-      (searchQuery: string, searchResults: any[]) => {
-        // Store search results for the current message
-        currentSearchQuery = searchQuery;
-        currentSearchResults = searchResults;
-        
-        // Update the current streaming message with search results
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('[ChatPanel] Streaming was cancelled');
+        // Mark any streaming messages as cancelled
         if (streamingMessageId) {
           updateMessage(streamingMessageId, {
-            searchQuery: currentSearchQuery,
-            searchResults: currentSearchResults
+            streaming: false,
+            message: lastStreamingMessage + '\n\n*[Response cancelled by user]*'
           });
         }
+        if (streamingThinkingId) {
+          updateMessage(streamingThinkingId, { streaming: false });
+        }
+      } else {
+        console.error('[ChatPanel] Error in streaming:', error);
       }
-    );
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.log('[ChatPanel] Streaming was cancelled');
-      // Mark any streaming messages as cancelled
-      if (streamingMessageId) {
-        updateMessage(streamingMessageId, { 
-          streaming: false,
-          message: lastStreamingMessage + '\n\n*[Response cancelled by user]*'
-        });
-      }
-      if (streamingThinkingId) {
-        updateMessage(streamingThinkingId, { streaming: false });
-      }
-    } else {
-      console.error('[ChatPanel] Error in streaming:', error);
+    } finally {
+      setIsStreaming(false);
+      abortControllerRef.current = null;
     }
-  } finally {
-    setIsStreaming(false);
-    abortControllerRef.current = null;
-  }
   };
 
   const formatTimestamp = () => {
@@ -1120,15 +1104,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     if (isPersonaSelectorVisible) {
       handleFirstMessage();
     }
-    
+
     const textToSend = messageText || input.trim();
-    
+
     if (!textToSend && !hideMessage) return;
-    
+
     if (isStreaming) return;
-    
+
     const timestamp = formatTimestamp();
-    
+
     if (editingMessageId) {
       // Update the original user message
       updateMessage(editingMessageId, { content: textToSend, timestamp });
@@ -1176,15 +1160,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         const fileContext = selectedFiles.map(file => `## ${file.name}\n\n${file.content}`).join('\n\n');
         aiMessage = `${fileContext}\n\n---\n\n${textToSend}`;
       }
-      
+
       // Build message parts including uploaded files
       const messageParts: any[] = [];
-      
+
       // Add text content if present
       if (aiMessage.trim()) {
         messageParts.push({ text: aiMessage });
       }
-      
+
       // Add uploaded files as inlineData
       const readyFiles = uploadedFiles.filter(f => f.status === 'ready');
       for (const file of readyFiles) {
@@ -1197,12 +1181,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           });
         }
       }
-      
+
       conversationHistory.push({
         role: 'user',
         parts: messageParts
       });
-      
+
       // Add to chat UI (display version without file content)
       addMessage({
         id: Date.now().toString(36) + Math.random().toString(36).substr(2),
@@ -1212,7 +1196,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         timestamp
       });
       setInput(''); // Clear input immediately after sending
-      
+
       // Clear uploaded files after sending
       setUploadedFiles([]);
     }
@@ -1233,15 +1217,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     }
   };
 
-  // Smart auto-scrolling: only scroll to bottom if streaming or user is at bottom
+  // Scroll user message to top of container when sent
   useEffect(() => {
-    // Only auto-scroll if:
-    // 1. We're streaming (new content is being added)
-    // 2. OR user hasn't scrolled up (they're at the bottom)
-    if (isStreaming || !userHasScrolledUp) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Find the last user message and scroll it to top
+    const lastUserMessage = messages.filter((msg: any) => msg.role === 'user').pop();
+    if (lastUserMessage) {
+      // Find the DOM element for this message
+      const messageElement = document.querySelector(`[data-message-id="${lastUserMessage.id}"]`);
+      if (messageElement && messagesContainerRef.current) {
+        // Get the container and calculate the exact scroll position
+        const container = messagesContainerRef.current;
+
+        // Get the message's offset position relative to the container
+        const messageOffsetTop = (messageElement as HTMLElement).offsetTop;
+
+        // Scroll the container to position the message at the top
+        // Account for the container's padding (16px)
+        container.scrollTo({
+          top: messageOffsetTop - 16,
+          behavior: 'smooth'
+        });
+      }
     }
-  }, [messages, isStreaming, userHasScrolledUp]);
+  }, [messages.filter((msg: any) => msg.role === 'user').length]); // Only trigger when user message count changes
 
   // Add keyboard shortcuts for text selection and copying
   useEffect(() => {
@@ -1255,7 +1253,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           return;
         }
       }
-      
+
       // Ctrl/Cmd + A to select all text in the current message
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         const activeElement = document.activeElement;
@@ -1281,16 +1279,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // MCP Server Manager props (get from plugin context)
   const plugin = (window as any).tangentPluginInstance; // You may need to set this in main.tsx for access
   const mcpServerManager = plugin?.mcpServerManager;
-  
+
   // Get fresh data from server manager
   const getMCPServerStatuses = () => mcpServerManager?.getAllServerStatuses() || [];
-  
+
   const handleNewChat = () => {
     // Cancel any ongoing streaming
     if (isStreaming) {
       cancelStreaming();
     }
-    
+
     clearMessages();
     setCurrentConversation(null);
     setInput('');
@@ -1304,17 +1302,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     setSelectedFileIndex(0);
     setSelectedTemplateIndex(0);
     setActiveView('chat');
-    // Reset scroll state for new chat
-    setUserHasScrolledUp(false);
     // Reset persona state for new chat
     setSelectedPersona(null);
     setIsPersonaSelectorVisible(true);
   };
 
   return (
-    <div 
+    <div
       className={`tangent-chat-panel-root tangent-chat-panel-main ${selectedPersona ? 'with-persona' : ''}`}
-      style={selectedPersona ? { 
+      style={selectedPersona ? {
         borderLeftColor: selectedPersona.color,
         '--persona-color': selectedPersona.color
       } as React.CSSProperties : {}}
@@ -1351,8 +1347,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           <div className="tangent-chat-panel-messages" ref={messagesContainerRef}>
             {/* Persona Badge */}
             {selectedPersona && messages.length > 0 && (
-              <PersonaBadge 
-                persona={selectedPersona} 
+              <PersonaBadge
+                persona={selectedPersona}
               />
             )}
 
@@ -1366,116 +1362,117 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               />
             )}
 
-        {messages.map((msg, idx) => {
-          if (msg.role === 'tool-call') {
-            return (
-              <CollapsibleToolCall key={idx} toolName={msg.toolName} toolArgs={msg.toolArgs} />
-            );
-          } else if (msg.role === 'tool-result') {
-            return (
-              <CollapsibleToolResult key={idx} toolName={msg.toolName} result={msg.result} />
-            );
-          } else if ((msg as any).role === 'tool-confirmation') {
-            const confirmationMsg = msg as any;
-            const resolver = (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
-            
-            return (
-              <ToolConfirmationCard
-                key={idx}
-                pendingTool={confirmationMsg.pendingTool}
-                approved={confirmationMsg.approved}
-                onApprove={() => {
-                  if (resolver) {
-                    resolver(true);
-                    delete (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
-                  }
-                }}
-                onDeny={() => {
-                  if (resolver) {
-                    resolver(false);
-                    delete (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
-                  }
-                }}
-              />
-            );
-          }
-          
-          const isUser = msg.role === 'user';
-          const isAI = msg.role === 'ai';
-          
-          return (
-            <ChatMessageContainer
-              key={msg.id || idx}
-              isUser={isUser}
-            >
-              {isUser ? (
-                <UserMessage
-                  content={msg.content}
-                  files={msg.files}
-                  onEdit={() => handleEditMessage(msg.id, msg.content)}
-                  showEdit={true}
-                />
-              ) : isAI ? (
-                <AIMessage 
-                  thought={msg.thought} 
-                  message={msg.message} 
-                  searchQuery={msg.searchQuery}
-                  searchResults={msg.searchResults}
-                />
-              ) : null}
-            </ChatMessageContainer>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </div>
+            {messages.map((msg, idx) => {
+              if (msg.role === 'tool-call') {
+                return (
+                  <CollapsibleToolCall key={idx} toolName={msg.toolName} toolArgs={msg.toolArgs} />
+                );
+              } else if (msg.role === 'tool-result') {
+                return (
+                  <CollapsibleToolResult key={idx} toolName={msg.toolName} result={msg.result} />
+                );
+              } else if ((msg as any).role === 'tool-confirmation') {
+                const confirmationMsg = msg as any;
+                const resolver = (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
+
+                return (
+                  <ToolConfirmationCard
+                    key={idx}
+                    pendingTool={confirmationMsg.pendingTool}
+                    approved={confirmationMsg.approved}
+                    onApprove={() => {
+                      if (resolver) {
+                        resolver(true);
+                        delete (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
+                      }
+                    }}
+                    onDeny={() => {
+                      if (resolver) {
+                        resolver(false);
+                        delete (window as any)[`confirmationResolver_${confirmationMsg.pendingTool.id}`];
+                      }
+                    }}
+                  />
+                );
+              }
+
+              const isUser = msg.role === 'user';
+              const isAI = msg.role === 'ai';
+
+              return (
+                <ChatMessageContainer
+                  key={msg.id || idx}
+                  isUser={isUser}
+                  data-message-id={msg.id}
+                >
+                  {isUser ? (
+                    <UserMessage
+                      content={msg.content}
+                      files={msg.files}
+                      onEdit={() => handleEditMessage(msg.id, msg.content)}
+                      showEdit={true}
+                    />
+                  ) : isAI ? (
+                    <AIMessage
+                      thought={msg.thought}
+                      message={msg.message}
+                      searchQuery={msg.searchQuery}
+                      searchResults={msg.searchResults}
+                    />
+                  ) : null}
+                </ChatMessageContainer>
+              );
+            })}
+            <div ref={messagesEndRef} style={{ height: '100vh', minHeight: '400px' }} />
+          </div>
 
 
 
-      {/* Input Area */}
-      <div className="tangent-chat-panel-input-area">
-        <ChatInputContainer
-          selectedFiles={selectedFiles}
-          input={input}
-          textareaRef={textareaRef}
-          editingMessageId={editingMessageId}
-          isStreaming={isStreaming}
-          handleInputChange={handleInputChange}
-          handleFileSelect={handleFileSelect}
-          handleCancelEdit={handleCancelEdit}
-          sendMessage={sendMessage}
-          showFileDropdown={showFileDropdown}
-          filteredFiles={filteredFiles}
-          selectedFileIndex={selectedFileIndex}
-          setSelectedFileIndex={setSelectedFileIndex}
-          removeFileFromContext={removeFileFromContext}
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
-          thinkingEnabled={thinkingEnabled}
-          setThinkingEnabled={setThinkingEnabled}
-          setShowFileDropdown={setShowFileDropdown}
-          uploadedFiles={uploadedFiles}
-          onFileUpload={handleFileUpload}
-          onFileRemove={handleFileRemove}
-          // Template props
-          showTemplateDropdown={showTemplateDropdown}
-          setShowTemplateDropdown={setShowTemplateDropdown}
-          templateItems={templateItems}
-          selectedTemplateIndex={selectedTemplateIndex}
-          setSelectedTemplateIndex={setSelectedTemplateIndex}
-          handleTemplateSelect={handleTemplateSelect}
-          isLoadingTemplates={isLoadingTemplates}
-          templateError={templateError}
-          templateItemRenderer={templateItemRenderer}
-          // Web search props
-          webSearchEnabled={webSearchEnabled}
-          setWebSearchEnabled={setWebSearchEnabled}
-          // Cancellation prop
-          onCancelStreaming={cancelStreaming}
-        />
-      </div>
+          {/* Input Area */}
+          <div className="tangent-chat-panel-input-area">
+            <ChatInputContainer
+              selectedFiles={selectedFiles}
+              input={input}
+              textareaRef={textareaRef}
+              editingMessageId={editingMessageId}
+              isStreaming={isStreaming}
+              handleInputChange={handleInputChange}
+              handleFileSelect={handleFileSelect}
+              handleCancelEdit={handleCancelEdit}
+              sendMessage={sendMessage}
+              showFileDropdown={showFileDropdown}
+              filteredFiles={filteredFiles}
+              selectedFileIndex={selectedFileIndex}
+              setSelectedFileIndex={setSelectedFileIndex}
+              removeFileFromContext={removeFileFromContext}
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              thinkingEnabled={thinkingEnabled}
+              setThinkingEnabled={setThinkingEnabled}
+              setShowFileDropdown={setShowFileDropdown}
+              uploadedFiles={uploadedFiles}
+              onFileUpload={handleFileUpload}
+              onFileRemove={handleFileRemove}
+              // Template props
+              showTemplateDropdown={showTemplateDropdown}
+              setShowTemplateDropdown={setShowTemplateDropdown}
+              templateItems={templateItems}
+              selectedTemplateIndex={selectedTemplateIndex}
+              setSelectedTemplateIndex={setSelectedTemplateIndex}
+              handleTemplateSelect={handleTemplateSelect}
+              isLoadingTemplates={isLoadingTemplates}
+              templateError={templateError}
+              templateItemRenderer={templateItemRenderer}
+              // Web search props
+              webSearchEnabled={webSearchEnabled}
+              setWebSearchEnabled={setWebSearchEnabled}
+              // Cancellation prop
+              onCancelStreaming={cancelStreaming}
+            />
+          </div>
         </>
       )}
-      
+
       {/* Variable Input Modal */}
       <VariableInputModal
         isVisible={showVariableModal}
@@ -1483,7 +1480,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         onConfirm={handleVariableInputConfirm}
         onCancel={handleVariableInputCancel}
       />
-      
+
       {activeView === 'history' && (
         <HistoryTab
           conversationService={conversationService}
