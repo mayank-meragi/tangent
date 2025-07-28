@@ -9,7 +9,7 @@ interface SearchResult {
 }
 
 export type ChatMessage =
-  | { id: string; role: 'user'; content: string; files?: UploadedFile[]; timestamp?: string }
+  | { id: string; role: 'user'; content: string; files?: UploadedFile[]; contextFiles?: { name: string; path: string; isCurrentFile?: boolean }[]; timestamp?: string }
   | { id: string; role: 'ai'; message: string; thought: string; streaming?: boolean; timestamp?: string; searchQuery?: string; searchResults?: SearchResult[] }
   | { id: string; role: 'tool-call'; toolName: string; toolArgs: any }
   | { id: string; role: 'tool-result'; toolName: string; result: any }
@@ -70,6 +70,7 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
         role: 'user',
         content: msg.content,
         files: msg.files,
+        contextFiles: (msg as any).contextFiles,
         timestamp: msg.timestamp
       };
     } else if (msg.role === 'tool-call') {
@@ -103,14 +104,14 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
     setMessages((prev: any): ChatMessage[] => addMessageHelper(prev, msg));
 
   const updateMessage = (id: string, updates: Partial<ChatMessage>) =>
-    setMessages((prev: any) => 
+    setMessages((prev: any) =>
       prev.map((msg: any) => msg.id === id ? { ...msg, ...updates } : msg)
     );
 
   const editUserMessage = (id: string, newContent: string) => {
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.id === id && msg.role === 'user' 
+    setMessages(prev =>
+      prev.map(msg =>
+        msg.id === id && msg.role === 'user'
           ? { ...msg, content: newContent, timestamp: new Date().toISOString() }
           : msg
       )
@@ -126,13 +127,13 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
       return prev;
     });
   };
-    
+
   const addToolCall = (toolName: string, toolArgs: any) =>
     setMessages(prev => [...prev, { id: generateId(), role: 'tool-call', toolName, toolArgs }]);
-    
+
   const addToolResult = (toolName: string, result: any) =>
     setMessages(prev => [...prev, { id: generateId(), role: 'tool-result', toolName, result }]);
-    
+
   const clearMessages = () => {
     setMessages([]);
     setPendingToolConfirmations(new Map());
@@ -159,25 +160,25 @@ export const ChatMessagesProvider: React.FC<{ children: ReactNode }> = ({ childr
       newMap.delete(toolCallId);
       return newMap;
     });
-    
+
     // Update the confirmation message in chat
-    setMessages(prev => prev.map(msg => 
-      msg.role === 'tool-confirmation' && 
-      (msg as any).pendingTool.id === toolCallId
+    setMessages(prev => prev.map(msg =>
+      msg.role === 'tool-confirmation' &&
+        (msg as any).pendingTool.id === toolCallId
         ? { ...msg, approved } as any
         : msg
     ));
   };
 
   return (
-    <ChatMessagesContext.Provider value={{ 
-      messages, 
-      addMessage, 
+    <ChatMessagesContext.Provider value={{
+      messages,
+      addMessage,
       updateMessage,
       editUserMessage,
       removeMessagesAfter,
-      addToolCall, 
-      addToolResult, 
+      addToolCall,
+      addToolResult,
       clearMessages,
       loadMessages,
       pendingToolConfirmations,

@@ -1156,9 +1156,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     // If not editing, add the new user message to the conversation history
     if (!editingMessageId && !hideMessage) {
       let aiMessage = textToSend;
+
+      // Debug logging for context files
+      console.log('[CONTEXT DEBUG] Selected files count:', selectedFiles.length);
+      console.log('[CONTEXT DEBUG] Selected files:', selectedFiles.map(f => ({ name: f.name, path: f.path, contentLength: f.content.length })));
+
       if (selectedFiles.length > 0) {
         const fileContext = selectedFiles.map(file => `## ${file.name}\n\n${file.content}`).join('\n\n');
-        aiMessage = `${fileContext}\n\n---\n\n${textToSend}`;
+        aiMessage = `**CONTEXT FILES PROVIDED:**\n\nThe following files have been added to provide context for this conversation:\n\n${fileContext}\n\n---\n\n**USER MESSAGE:**\n\n${textToSend}`;
+
+        console.log('[CONTEXT DEBUG] File context length:', fileContext.length);
+        console.log('[CONTEXT DEBUG] Final AI message length:', aiMessage.length);
+        console.log('[CONTEXT DEBUG] File context preview:', fileContext.substring(0, 200) + '...');
       }
 
       // Build message parts including uploaded files
@@ -1167,10 +1176,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       // Add text content if present
       if (aiMessage.trim()) {
         messageParts.push({ text: aiMessage });
+        console.log('[CONTEXT DEBUG] Added text part to message parts');
       }
 
       // Add uploaded files as inlineData
       const readyFiles = uploadedFiles.filter(f => f.status === 'ready');
+      console.log('[CONTEXT DEBUG] Ready uploaded files count:', readyFiles.length);
+
       for (const file of readyFiles) {
         if (file.encodedData) {
           messageParts.push({
@@ -1179,8 +1191,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               data: file.encodedData
             }
           });
+          console.log('[CONTEXT DEBUG] Added inline data part for file:', file.name);
         }
       }
+
+      console.log('[CONTEXT DEBUG] Total message parts:', messageParts.length);
+      console.log('[CONTEXT DEBUG] Message parts structure:', messageParts.map(part => ({
+        hasText: !!part.text,
+        hasInlineData: !!part.inlineData,
+        textLength: part.text?.length || 0
+      })));
 
       conversationHistory.push({
         role: 'user',
@@ -1193,13 +1213,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         role: 'user',
         content: textToSend,
         files: uploadedFiles.filter(f => f.status === 'ready' && f.preview),
+        contextFiles: selectedFiles.map(file => ({
+          name: file.name,
+          path: file.path,
+          isCurrentFile: file.isCurrentFile
+        })),
         timestamp
       });
       setInput(''); // Clear input immediately after sending
 
       // Clear uploaded files after sending
       setUploadedFiles([]);
+
+      // Clear selected context files after sending
+      setSelectedFiles([]);
     }
+
+    console.log('[CONTEXT DEBUG] Final conversation history length:', conversationHistory.length);
+    console.log('[CONTEXT DEBUG] Conversation history structure:', conversationHistory.map(msg => ({
+      role: msg.role,
+      partsCount: msg.parts.length,
+      hasText: msg.parts.some(part => part.text),
+      hasInlineData: msg.parts.some(part => part.inlineData)
+    })));
 
     setIsStreaming(true);
     try {
@@ -1409,6 +1445,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                     <UserMessage
                       content={msg.content}
                       files={msg.files}
+                      contextFiles={(msg as any).contextFiles}
                       onEdit={() => handleEditMessage(msg.id, msg.content)}
                       showEdit={true}
                     />
