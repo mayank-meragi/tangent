@@ -306,6 +306,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     currentMessagesRef.current = messages;
   }, [messages]);
 
+  useEffect(() => {
+    console.log('hasUserRemovedCurrentFile', hasUserRemovedCurrentFile);
+  }, [hasUserRemovedCurrentFile]);
+
 
 
   // Initialize template service
@@ -563,6 +567,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       return;
     }
 
+    console.log('Getting current file context', hasUserRemovedCurrentFile);
+
     try {
       const activeFile = app.workspace.getActiveFile();
       if (activeFile) {
@@ -743,6 +749,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     }
 
     setActiveView('chat'); // Switch to chat view after loading conversation
+    // Reset the flag for removed current file when loading a conversation
+    setHasUserRemovedCurrentFile(false);
 
   };
 
@@ -879,7 +887,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     return () => {
       app.workspace.off('active-leaf-change', handleActiveLeafChange);
     };
-  }, [app]);
+  }, [app, hasUserRemovedCurrentFile]);
 
   // Auto-resize textarea on mount and when input changes
   useEffect(() => {
@@ -1341,6 +1349,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     // Reset persona state for new chat
     setSelectedPersona(null);
     setIsPersonaSelectorVisible(true);
+    // Reset the flag for removed current file
+    setHasUserRemovedCurrentFile(false);
   };
 
   return (
