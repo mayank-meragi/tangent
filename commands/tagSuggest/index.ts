@@ -1,5 +1,5 @@
 import { App, Modal } from 'obsidian';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type } from '../../gemini';
 
 export interface TagSuggestOptions {
   app: App;
@@ -21,7 +21,7 @@ export class TagSuggestCommand {
    */
   async execute(): Promise<void> {
     console.log('AI Tag Suggest command triggered!');
-    
+
     // Get the currently open file
     const currentFile = this.app.workspace.getActiveFile();
     if (!currentFile) {
@@ -32,13 +32,13 @@ export class TagSuggestCommand {
     // Read the content of the current file
     const fileContent = await this.app.vault.read(currentFile);
     console.log('Current file content:', fileContent);
-    
+
     // Get all tags in the vault
     const cache = this.app.metadataCache;
     // @ts-ignore
     const allTags = cache.getTags();
     console.log('All tags in vault:', allTags);
-    
+
     // Call Gemini AI to get tag suggestions using structured output
     if (!this.geminiApiKey) {
       console.log('Gemini API key not set');
@@ -101,23 +101,23 @@ Please provide a structured response with suggested tags. Consider:
       console.log('Gemini AI Response:', result);
 
       const structuredResponse = result.text;
-      
+
       if (!structuredResponse) {
         console.error('No response text received from Gemini AI');
         return;
       }
-      
+
       console.log('Structured AI Response:', structuredResponse);
-      
+
       // Parse the structured response
       const parsedResponse = JSON.parse(structuredResponse);
       console.log('Parsed tag suggestions:', parsedResponse);
-      
+
       // Show tag selection modal
       if (parsedResponse.suggestedTags && Array.isArray(parsedResponse.suggestedTags)) {
         await this.showTagSelectionModal(currentFile, parsedResponse);
       }
-      
+
     } catch (error) {
       console.error('Error calling Gemini AI:', error);
     } finally {
@@ -126,9 +126,9 @@ Please provide a structured response with suggested tags. Consider:
     }
   }
 
-    /**
-   * Show tag selection modal
-   */
+  /**
+ * Show tag selection modal
+ */
   private async showTagSelectionModal(file: any, aiResponse: any): Promise<void> {
     return new Promise((resolve) => {
       const modal = new TagSelectionModal(
@@ -154,18 +154,18 @@ Please provide a structured response with suggested tags. Consider:
       // Get current frontmatter to see existing tags
       const fileCache = this.app.metadataCache.getFileCache(file);
       const existingTags = fileCache?.frontmatter?.tags || [];
-      
+
       // Combine existing tags with new suggested tags, avoiding duplicates
       const allTags = [...new Set([...existingTags, ...suggestedTags])];
-      
+
       // Update the file's frontmatter with the new tags
       await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
         frontmatter.tags = allTags;
       });
-      
+
       console.log(`Updated file tags. Added: ${suggestedTags.join(', ')}`);
       console.log(`All tags in file: ${allTags.join(', ')}`);
-      
+
     } catch (error) {
       console.error('Error updating file tags:', error);
     }
@@ -196,10 +196,10 @@ class TagSuggestLoadingModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    
+
     // Create modal content
     const container = contentEl.createDiv('tag-suggest-loading-modal');
-    
+
     // Add spinning icon
     const spinner = container.createDiv('loading-spinner');
     spinner.innerHTML = `
@@ -208,11 +208,11 @@ class TagSuggestLoadingModal extends Modal {
           <animate attributeName="stroke-dashoffset" values="0;-100" dur="1s" repeatCount="indefinite"/>
         </svg>
     `;
-    
+
     // Add loading text
     const text = container.createDiv('loading-text');
     text.setText('Analyzing content and generating tag suggestions...');
-    
+
     // Add subtitle
     const subtitle = container.createDiv('loading-subtitle');
     subtitle.setText('This may take a few seconds');
@@ -242,28 +242,28 @@ class TagSelectionModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    
+
     // Create modal content
     const container = contentEl.createDiv('tag-selection-modal');
-    
+
     // Header
     const header = container.createDiv('tag-selection-header');
     const title = header.createEl('h2');
     title.setText('AI Tag Suggestions');
-    
+
     // Reasoning
     if (this.reasoning) {
       const reasoningEl = header.createDiv('tag-selection-reasoning');
       reasoningEl.setText(this.reasoning);
     }
-    
+
     // Tag list
     const tagList = container.createDiv('tag-selection-list');
     const tagArray = Array.from(this.selectedTags);
-    
+
     tagArray.forEach(tag => {
       const tagItem = tagList.createDiv('tag-selection-item');
-      
+
       const checkbox = tagItem.createEl('input', { type: 'checkbox' });
       checkbox.checked = true;
       checkbox.addEventListener('change', (e) => {
@@ -274,20 +274,20 @@ class TagSelectionModal extends Modal {
           this.selectedTags.delete(tag);
         }
       });
-      
+
       const tagLabel = tagItem.createEl('label');
       tagLabel.setText(`#${tag}`);
     });
-    
+
     // Actions
     const actions = container.createDiv('tag-selection-actions');
-    
+
     const cancelBtn = actions.createEl('button', { text: 'Cancel' });
     cancelBtn.addClass('mod-warning');
     cancelBtn.addEventListener('click', () => {
       this.close();
     });
-    
+
     const confirmBtn = actions.createEl('button', { text: 'Add Selected Tags' });
     confirmBtn.addClass('mod-cta');
     confirmBtn.addEventListener('click', () => {
