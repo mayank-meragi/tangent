@@ -1,4 +1,4 @@
-import { GenerateContentConfig, GoogleGenAI, Type } from '@google/genai';
+import { GenerateContentConfig, GoogleGenAI, Type } from './gemini';
 import { App } from 'obsidian';
 import {
   PendingToolCall,
@@ -302,12 +302,28 @@ export async function streamAIResponse({
         return;
       }
 
-      // Check if there are function calls
+      // Check if there are function calls - they can be in multiple places
+      let functionCalls: any[] = [];
+
+      // Check root level functionCalls
       if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {
-        console.log(`[AI DEBUG] Found ${fullResponse.functionCalls.length} function calls`);
+        functionCalls = fullResponse.functionCalls;
+      }
+
+      // Check candidates[0].content.parts for function calls
+      if (fullResponse?.candidates && fullResponse.candidates[0]?.content?.parts) {
+        for (const part of fullResponse.candidates[0].content.parts) {
+          if (part.functionCall) {
+            functionCalls.push(part.functionCall);
+          }
+        }
+      }
+
+      if (functionCalls.length > 0) {
+        console.log(`[AI DEBUG] Found ${functionCalls.length} function calls`);
 
         // Execute each function call
-        for (const functionCall of fullResponse.functionCalls) {
+        for (const functionCall of functionCalls) {
           const { name, args } = functionCall;
           const normalizedArgs = normalizeDateRangeArgs(args || {});
 
