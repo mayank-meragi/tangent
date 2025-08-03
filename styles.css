@@ -1995,6 +1995,24 @@ textarea:focus {
   }
 }
 
+/* User Input Modal Styles */
+.user-input-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.user-input-modal input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
 /* Tag Suggest Loading Modal Styles */
 .tag-suggest-loading-modal {
   display: flex;
