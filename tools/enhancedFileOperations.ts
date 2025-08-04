@@ -7,6 +7,7 @@ import {
   getDailyNote
 } from 'obsidian-daily-notes-interface';
 import moment from 'moment';
+import { insertNumberedContent, numberFileContent } from 'src/utils/content';
 
 // Helper functions for daily notes
 async function getOrCreateDailyNote(app: App, date: string): Promise<TFile> {
@@ -144,11 +145,10 @@ export async function readFile(app: App, args: { isDailyNote: boolean; date?: st
     }
 
     // Read the file content
-    const content = await vault.read(file);
+    const content = await vault.cachedRead(file);
 
     // Add line numbers to the content
-    const lines = content.split('\n');
-    const numberedContent = lines.map((line, index) => `${index + 1} | ${line}`).join('\n');
+    const numberedContent = numberFileContent(content);
 
     return {
       type: 'text',
@@ -390,41 +390,11 @@ export async function insertContent(app: App, args: { isDailyNote: boolean; date
     }
 
     // Read current content
-    const currentContent = await vault.read(file);
-    const lines = currentContent.split('\n');
-    console.log(`[insertContent] Read file: ${path}, line count: ${lines.length}`);
+    const currentContent = await vault.cachedRead(file);
 
-    // Sort operations by startLine in descending order to avoid line number shifts
-    const sortedOperations = [...operations].sort((a, b) => b.startLine - a.startLine);
-    console.log('[insertContent] Sorted operations:', JSON.stringify(sortedOperations));
+    const newContent = insertNumberedContent(currentContent, operations);
+    console.log(`[insertContent] Read file: ${path}, line count: ${newContent.length}`);
 
-    // Apply insertions
-    for (const operation of sortedOperations) {
-      let { startLine } = operation;
-      const { content } = operation;
-      const originalStartLine = startLine;
-      // If startLine is greater than lines.length + 1, append at end
-      // This prevents out-of-bounds errors and makes the tool more user-friendly
-      if (startLine < 1) {
-        console.log(`[insertContent] ERROR: Invalid line number: ${startLine}`);
-        return {
-          type: 'error',
-          error: `Invalid line number: ${startLine}. Line number must be >= 1.`
-        };
-      }
-      if (startLine > lines.length + 1) {
-        // Clamp to end of file
-        startLine = lines.length + 1;
-        console.log(`[insertContent] Adjusted startLine from ${originalStartLine} to ${startLine} (end of file)`);
-      }
-      const contentLines = content.split('\n');
-      console.log(`[insertContent] Inserting at line ${startLine}:`, contentLines);
-      lines.splice(startLine - 1, 0, ...contentLines);
-    }
-
-    // Write back the modified content
-    const newContent = lines.join('\n');
-    console.log(`[insertContent] Writing modified content to file: ${path}, new line count: ${lines.length}`);
     await vault.modify(file, newContent);
     console.log('[insertContent] Successfully wrote modified content.');
 

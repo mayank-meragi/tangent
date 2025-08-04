@@ -1,4 +1,4 @@
-import { GenerateContentConfig, GoogleGenAI, Type } from './gemini';
+import { GenerateContentConfig, GoogleGenAI, Type } from './src/api/gemini';
 import { App } from 'obsidian';
 import {
   PendingToolCall,

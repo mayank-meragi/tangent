@@ -1,5 +1,5 @@
 import { App, Modal } from 'obsidian';
-import { GoogleGenAI, Type } from '../../gemini';
+import { GoogleGenAI, Type } from '../../src/api/gemini';
 
 export interface TagSuggestOptions {
   app: App;

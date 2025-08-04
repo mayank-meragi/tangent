@@ -7,7 +7,7 @@ import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
 import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
 import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
 import { TemplateService } from './templateService';
-import { createTagSuggestCommand } from './commands';
+import { createDietLogCommand, createTagSuggestCommand } from './commands';
 
 // Remember to rename these classes and interfaces!
 
@@ -146,6 +146,19 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 
+		// Add Diet Log command
+		this.addCommand({
+			id: 'diet-log',
+			name: 'Diet Log',
+			callback: async () => {
+				const dietLogCommand = createDietLogCommand({
+					app: this.app,
+					geminiApiKey: this.settings.geminiApiKey
+				});
+				await dietLogCommand.execute();
+			}
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new GeminiSettingTab(this.app, this));
 
@@ -242,11 +255,11 @@ export default class MyPlugin extends Plugin {
 	async debugTasksIntegration() {
 		console.log('🔍 DEBUGGING TASKS PLUGIN INTEGRATION');
 		console.log('=====================================');
-		
+
 		// Show all available plugins
 		const allPlugins = (this.app as any).plugins.plugins;
 		console.log('All available plugins:', Object.keys(allPlugins));
-		
+
 		// Check for Tasks plugin with different possible IDs
 		const possiblePluginIds = [
 			'obsidian-tasks',
@@ -255,9 +268,9 @@ export default class MyPlugin extends Plugin {
 			'obsidian-tasks-group-obsidian-tasks',
 			'obsidian-tasks-plugin'
 		];
-		
+
 		console.log('Looking for Tasks plugin with IDs:', possiblePluginIds);
-		
+
 		for (const id of possiblePluginIds) {
 			const plugin = allPlugins[id];
 			if (plugin) {
@@ -271,27 +284,27 @@ export default class MyPlugin extends Plugin {
 				});
 			}
 		}
-		
+
 		// Try to get global filter
 		const globalFilter = await getObsidianTasksGlobalFilter(this.app);
 		console.log('Global filter:', globalFilter);
-		
+
 		if (globalFilter) {
 			const conditions = convertTasksFilterToDataviewConditions(globalFilter);
 			console.log('Converted conditions:', conditions);
 		}
-		
+
 		// Test with a simple query
 		console.log('\nTesting with sample tasks...');
 		const sampleTasks = [
 			'- [ ] #task this is a task 📅 2025-07-14',
 			'- [ ] this is not a task 📅 2025-07-14'
 		];
-		
+
 		sampleTasks.forEach((taskLine, index) => {
 			console.log(`Task ${index + 1}: ${taskLine}`);
 		});
-		
+
 		console.log('\nDebug complete. Check console for details.');
 		new Notice('Tasks integration debug complete. Check console for details.');
 	}
@@ -299,7 +312,7 @@ export default class MyPlugin extends Plugin {
 	async debugDropdownUI() {
 		console.log('🔍 DEBUGGING DROPDOWN UI');
 		console.log('=========================');
-		
+
 		try {
 			// Check if template service is initialized
 			if (!this.templateService) {
@@ -317,19 +330,19 @@ export default class MyPlugin extends Plugin {
 					return templates.slice(0, 5);
 				}
 
-				const filtered = templates.filter(template => 
+				const filtered = templates.filter(template =>
 					template.title.toLowerCase().includes(query.toLowerCase()) ||
 					template.description?.toLowerCase().includes(query.toLowerCase()) ||
 					template.category?.toLowerCase().includes(query.toLowerCase())
 				);
-				
+
 				return filtered.slice(0, 5);
 			};
 
 			// Test different queries
 			console.log('\n📋 Testing search queries:');
 			const testQueries = ['', 'writing', 'analysis', 'technical'];
-			
+
 			testQueries.forEach(query => {
 				const results = mockFilter(query);
 				console.log(`"${query || '(empty)'}": ${results.length} results`);
@@ -359,7 +372,7 @@ export default class MyPlugin extends Plugin {
 	async debugTemplateService() {
 		console.log('🔍 DEBUGGING TEMPLATE SERVICE');
 		console.log('==============================');
-		
+
 		try {
 			// Check if template service is initialized
 			if (!this.templateService) {
@@ -367,9 +380,9 @@ export default class MyPlugin extends Plugin {
 				new Notice('Template service not initialized');
 				return;
 			}
-			
+
 			console.log('✅ Template service is initialized');
-			
+
 			// Check bundled templates
 			console.log('\n📦 Checking bundled templates...');
 			const bundledTemplates = await this.templateService['loadBundledTemplates']();
@@ -381,37 +394,37 @@ export default class MyPlugin extends Plugin {
 			} else {
 				console.log('❌ No bundled templates found');
 			}
-			
+
 			// Check all templates
 			console.log('\n📋 Checking all templates...');
 			const allTemplates = await this.templateService.getAllTemplates();
 			console.log(`✅ Found ${allTemplates.length} total templates`);
-			
+
 			allTemplates.forEach(template => {
 				console.log(`  - ${template.title} (${template.category}) - ${template.author}`);
 			});
-			
+
 			// Check template categories
 			console.log('\n📂 Checking template categories...');
 			const categories = await this.templateService.getTemplateCategories();
 			console.log(`✅ Found ${categories.length} categories`);
-			
+
 			categories.forEach(category => {
 				console.log(`  - ${category.name}: ${category.description}`);
 			});
-			
+
 			// Test search
 			console.log('\n🔍 Testing template search...');
 			const searchResults = await this.templateService.searchTemplates('writing');
 			console.log(`✅ Found ${searchResults.length} templates matching 'writing'`);
-			
+
 			searchResults.forEach(result => {
 				console.log(`  - ${result.template.title} (score: ${result.relevanceScore})`);
 			});
-			
+
 			console.log('\n✅ Template service debug complete');
 			new Notice('Template service debug complete. Check console for details.');
-			
+
 		} catch (error) {
 			console.error('❌ Template service debug failed:', error);
 			new Notice('Template service debug failed. Check console for error.');
@@ -430,7 +443,7 @@ class MCPServerManagerModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'MCP Server Manager' });
-		
+
 		// Load preconfigured servers
 		try {
 			this.preconfiguredServers = await getPreconfiguredServers();
@@ -438,25 +451,25 @@ class MCPServerManagerModal extends Modal {
 			console.error('Failed to load preconfigured servers:', error);
 			this.preconfiguredServers = [];
 		}
-		
+
 		// Create the main container
 		const container = contentEl.createDiv('mcp-server-manager-modal');
-		
+
 		// Create tabs for different sections
 		const tabsContainer = container.createDiv('mcp-tabs');
-		const currentServersTab = tabsContainer.createEl('button', { 
+		const currentServersTab = tabsContainer.createEl('button', {
 			text: 'Current Servers',
 			cls: 'mcp-tab active'
 		});
-		const addServersTab = tabsContainer.createEl('button', { 
+		const addServersTab = tabsContainer.createEl('button', {
 			text: 'Add Servers',
 			cls: 'mcp-tab'
 		});
-		
+
 		// Create content areas
 		const currentServersContent = container.createDiv('mcp-tab-content active');
 		const addServersContent = container.createDiv('mcp-tab-content');
-		
+
 		// Tab switching logic
 		currentServersTab.addEventListener('click', () => {
 			tabsContainer.querySelectorAll('.mcp-tab').forEach(tab => tab.removeClass('active'));
@@ -464,60 +477,60 @@ class MCPServerManagerModal extends Modal {
 			currentServersTab.addClass('active');
 			currentServersContent.addClass('active');
 		});
-		
+
 		addServersTab.addEventListener('click', () => {
 			tabsContainer.querySelectorAll('.mcp-tab').forEach(tab => tab.removeClass('active'));
 			container.querySelectorAll('.mcp-tab-content').forEach(content => content.removeClass('active'));
 			addServersTab.addClass('active');
 			addServersContent.addClass('active');
 		});
-		
+
 		// Populate current servers tab
 		this.populateCurrentServersTab(currentServersContent);
-		
+
 		// Populate add servers tab
 		this.populateAddServersTab(addServersContent);
 	}
 
 	private populateCurrentServersTab(container: HTMLElement) {
 		const serverStatuses = this.plugin.mcpServerManager.getAllServerStatuses();
-		
+
 		if (serverStatuses.length === 0) {
 			container.createEl('p', { text: 'No MCP servers configured. Switch to the "Add Servers" tab to add preconfigured servers.' });
 			return;
 		}
-		
+
 		// Create server list
 		const serverList = container.createDiv('server-list');
-		
+
 		serverStatuses.forEach((status) => {
 			const serverEl = serverList.createDiv('server-item');
 			const header = serverEl.createDiv('server-header');
-			
+
 			// Server name and status
 			header.createEl('h3', { text: status.name });
-			header.createEl('span', { 
+			header.createEl('span', {
 				text: status.status,
 				cls: `status-badge status-${status.status}`
 			});
-			
+
 			// Server details
 			const details = serverEl.createDiv('server-details');
 			const config = this.plugin.mcpServerManager.getServerConfig(status.name);
-			
+
 			if (config) {
 				details.createEl('p', { text: `Command: ${config.command} ${config.args?.join(' ') || ''}` });
 				details.createEl('p', { text: `Transport: ${config.transport}` });
 				details.createEl('p', { text: `Timeout: ${config.timeout}s` });
 			}
-			
+
 			// Error display
 			if (status.lastError) {
-				details.createEl('p', { 
-					text: `Error: ${status.lastError}`, 
-					cls: 'error-message' 
+				details.createEl('p', {
+					text: `Error: ${status.lastError}`,
+					cls: 'error-message'
 				});
-				
+
 				// Add diagnostic information for common errors
 				if (status.lastError.includes('ENOENT') || status.lastError.includes('spawn')) {
 					const config = this.plugin.mcpServerManager.getServerConfig(status.name);
@@ -527,12 +540,12 @@ class MCPServerManagerModal extends Modal {
 						diagnosticEl.innerHTML = `<strong>Diagnostic Information:</strong><br>${diagnosticInfo}`;
 					}
 				}
-				
+
 				// Special handling for memory server errors
 				if (status.name === 'memory' && status.lastError.includes('memory.json')) {
 					const memoryStatus = checkMemoryFileAccess();
 					const memoryEl = details.createEl('div', { cls: 'memory-status' });
-					
+
 					if (!memoryStatus.exists) {
 						memoryEl.innerHTML = `
 							<strong>Memory File Status:</strong><br>
@@ -556,7 +569,7 @@ class MCPServerManagerModal extends Modal {
 						const credentialsPath = config.env.GOOGLE_OAUTH_CREDENTIALS as string;
 						const credentialsStatus = checkGoogleCalendarCredentials(credentialsPath);
 						const calendarEl = details.createEl('div', { cls: 'google-calendar-status' });
-						
+
 						if (!credentialsStatus.exists) {
 							calendarEl.innerHTML = `
 								<strong>Google Calendar Credentials Status:</strong><br>
@@ -582,7 +595,7 @@ class MCPServerManagerModal extends Modal {
 					}
 				}
 			}
-			
+
 			// Installation instructions for stopped servers
 			if (status.status === 'stopped') {
 				const instructions = details.createEl('div', { cls: 'installation-instructions' });
@@ -591,10 +604,10 @@ class MCPServerManagerModal extends Modal {
 					instructions.innerHTML = `<strong>Installation Instructions:</strong><br>${instructionsText}`;
 				}
 			}
-			
+
 			// Server controls
 			const controls = serverEl.createDiv('server-controls');
-			
+
 			// Enable/disable toggle
 			const configEl = this.plugin.mcpServerManager.getServerConfig(status.name);
 			if (configEl) {
@@ -602,7 +615,7 @@ class MCPServerManagerModal extends Modal {
 				toggleContainer.createEl('span', { text: 'Enabled:' });
 				const toggle = toggleContainer.createEl('input', { type: 'checkbox' });
 				toggle.checked = configEl.enabled || false;
-				
+
 				toggle.addEventListener('change', async () => {
 					try {
 						this.plugin.mcpServerManager.updateServerConfig(status.name, { enabled: toggle.checked });
@@ -613,14 +626,14 @@ class MCPServerManagerModal extends Modal {
 					}
 				});
 			}
-			
+
 			// Start/stop button
 			const isRunning = status.status === 'running';
-			const startStopEl = controls.createEl('button', { 
+			const startStopEl = controls.createEl('button', {
 				text: isRunning ? 'Stop' : 'Start',
 				cls: isRunning ? 'mod-warning' : 'mod-cta'
 			});
-			
+
 			startStopEl.addEventListener('click', async () => {
 				try {
 					if (isRunning) {
@@ -634,13 +647,13 @@ class MCPServerManagerModal extends Modal {
 					new Notice(`Failed to ${isRunning ? 'stop' : 'start'} server: ${error}`);
 				}
 			});
-			
+
 			// Remove button
-			const removeEl = controls.createEl('button', { 
+			const removeEl = controls.createEl('button', {
 				text: 'Remove',
 				cls: 'mod-warning'
 			});
-			
+
 			removeEl.addEventListener('click', async () => {
 				try {
 					await this.plugin.mcpServerManager.removeServer(status.name);
@@ -654,11 +667,11 @@ class MCPServerManagerModal extends Modal {
 
 			// Configuration button for Google Calendar
 			if (status.name === 'google-calendar') {
-				const configEl = controls.createEl('button', { 
+				const configEl = controls.createEl('button', {
 					text: 'Configure Credentials',
 					cls: 'mod-cta'
 				});
-				
+
 				configEl.addEventListener('click', () => {
 					this.showGoogleCalendarConfig(status.name);
 				});
@@ -669,31 +682,31 @@ class MCPServerManagerModal extends Modal {
 	private populateAddServersTab(container: HTMLElement) {
 		// Get current server configurations
 		const currentServers = this.plugin.mcpServerManager.getAllServerConfigs();
-		
+
 		// Get available preconfigured servers
 		const availableServers = getAvailablePreconfiguredServers(currentServers);
-		
+
 		if (availableServers.length === 0) {
 			container.createEl('p', { text: 'All preconfigured servers are already added to your configuration.' });
 			return;
 		}
-		
+
 		// Create server list
 		const serverList = container.createDiv('available-servers-list');
-		
+
 		availableServers.forEach(server => {
 			const serverEl = serverList.createDiv('available-server-item');
-			
+
 			// Server header
 			const header = serverEl.createDiv('server-header');
 			header.createEl('h3', { text: server.name });
-			
+
 			// Server details
 			const details = serverEl.createDiv('server-details');
 			details.createEl('p', { text: `Command: ${server.command} ${server.args?.join(' ') || ''}` });
 			details.createEl('p', { text: `Transport: ${server.transport}` });
 			details.createEl('p', { text: `Timeout: ${server.timeout}s` });
-			
+
 			// Description based on server type
 			let description = '';
 			switch (server.name) {
@@ -719,20 +732,20 @@ class MCPServerManagerModal extends Modal {
 					description = 'MCP server providing additional tools and capabilities.';
 			}
 			details.createEl('p', { text: description, cls: 'server-description' });
-			
+
 			// Installation instructions
 			const instructions = getServerInstallationInstructions(server.name);
 			if (instructions) {
 				const instructionsEl = details.createEl('div', { cls: 'installation-instructions' });
 				instructionsEl.innerHTML = `<strong>Installation Instructions:</strong><br>${instructions}`;
 			}
-			
+
 			// Add button
-			const addEl = serverEl.createEl('button', { 
+			const addEl = serverEl.createEl('button', {
 				text: 'Add Server',
 				cls: 'mod-cta'
 			});
-			
+
 			addEl.addEventListener('click', async () => {
 				try {
 					await this.plugin.mcpServerManager.addServer({ ...server, enabled: false });
@@ -756,18 +769,18 @@ class MCPServerManagerModal extends Modal {
 		if (!config) return;
 
 		const currentPath = config.env?.GOOGLE_OAUTH_CREDENTIALS as string || '';
-		
+
 		const modal = new Modal(this.app);
 		modal.titleEl.setText('Configure Google Calendar Credentials');
-		
+
 		const content = modal.contentEl.createDiv('google-calendar-config');
-		
+
 		// Instructions
-		content.createEl('p', { 
+		content.createEl('p', {
 			text: 'Set the path to your Google OAuth credentials JSON file:',
 			cls: 'config-instructions'
 		});
-		
+
 		// File path input
 		const inputContainer = content.createDiv('input-container');
 		const input = inputContainer.createEl('input', {
@@ -775,20 +788,20 @@ class MCPServerManagerModal extends Modal {
 			placeholder: '/path/to/your/gcp-oauth.keys.json',
 			value: currentPath
 		});
-		
+
 		// Browse button
 		const browseBtn = inputContainer.createEl('button', {
 			text: 'Browse',
 			cls: 'mod-cta'
 		});
-		
+
 		browseBtn.addEventListener('click', () => {
 			// Create a file input element
 			const fileInput = document.createElement('input');
 			fileInput.type = 'file';
 			fileInput.accept = '.json';
 			fileInput.style.display = 'none';
-			
+
 			fileInput.addEventListener('change', (event) => {
 				const target = event.target as HTMLInputElement;
 				if (target.files && target.files[0]) {
@@ -798,16 +811,16 @@ class MCPServerManagerModal extends Modal {
 					input.value = file.name;
 				}
 			});
-			
+
 			fileInput.click();
 		});
-		
+
 		// Validation status
 		const statusEl = content.createDiv('validation-status');
 		const updateValidation = () => {
 			const path = input.value.trim();
 			const status = checkGoogleCalendarCredentials(path);
-			
+
 			if (!status.exists) {
 				statusEl.innerHTML = `<span style="color: red;">❌ ${status.error}</span>`;
 			} else if (!status.valid) {
@@ -816,10 +829,10 @@ class MCPServerManagerModal extends Modal {
 				statusEl.innerHTML = `<span style="color: green;">✅ Credentials file is valid</span>`;
 			}
 		};
-		
+
 		input.addEventListener('input', updateValidation);
 		updateValidation();
-		
+
 		// Setup instructions
 		const instructionsEl = content.createDiv('setup-instructions');
 		instructionsEl.innerHTML = `
@@ -830,29 +843,29 @@ class MCPServerManagerModal extends Modal {
 			4. Download the JSON credentials file<br>
 			5. Enter the full path to the file above
 		`;
-		
+
 		// Buttons
 		const buttonContainer = content.createDiv('button-container');
-		
+
 		const saveBtn = buttonContainer.createEl('button', {
 			text: 'Save',
 			cls: 'mod-cta'
 		});
-		
+
 		const cancelBtn = buttonContainer.createEl('button', {
 			text: 'Cancel',
 			cls: 'mod-warning'
 		});
-		
+
 		saveBtn.addEventListener('click', async () => {
 			try {
 				const newPath = input.value.trim();
 				const newEnv = { ...config.env, GOOGLE_OAUTH_CREDENTIALS: newPath };
-				
+
 				this.plugin.mcpServerManager.updateServerConfig(serverName, {
 					env: newEnv
 				});
-				
+
 				new Notice('Google Calendar credentials updated successfully');
 				modal.close();
 				this.onOpen(); // Refresh the modal
@@ -861,11 +874,11 @@ class MCPServerManagerModal extends Modal {
 				new Notice(`Failed to update credentials: ${error}`);
 			}
 		});
-		
+
 		cancelBtn.addEventListener('click', () => {
 			modal.close();
 		});
-		
+
 		modal.open();
 	}
 }
@@ -918,7 +931,7 @@ class GeminiSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					this.plugin.settings.mcpEnabled = value;
 					await this.plugin.saveSettings();
-					
+
 					// Note: Server management is now simplified
 					// Servers are started/stopped individually through the UI
 				})
@@ -928,7 +941,7 @@ class GeminiSettingTab extends PluginSettingTab {
 		if (this.plugin.settings.mcpEnabled) {
 			const mcpContainer = containerEl.createDiv('mcp-settings');
 			mcpContainer.createEl('h3', { text: 'MCP Servers' });
-			
+
 			// Add a button to open MCP server manager modal
 			new Setting(mcpContainer)
 				.setName('Manage MCP Servers')

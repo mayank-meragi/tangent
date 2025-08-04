@@ -6,13 +6,13 @@
 // Type enum matching the original package
 export enum Type {
     TYPE_UNSPECIFIED = "TYPE_UNSPECIFIED",
-    STRING = "STRING",
-    NUMBER = "NUMBER",
-    INTEGER = "INTEGER",
-    BOOLEAN = "BOOLEAN",
-    ARRAY = "ARRAY",
-    OBJECT = "OBJECT",
-    NULL = "NULL"
+    STRING = "string",
+    NUMBER = "number",
+    INTEGER = "integer",
+    BOOLEAN = "boolean",
+    ARRAY = "array",
+    OBJECT = "object",
+    NULL = "null"
 }
 
 // Configuration types
@@ -341,17 +341,16 @@ class Models {
                     return processedTool;
                 });
             }
+            body.generationConfig = {}
             if (params.config.thinkingConfig) {
                 // thinkingConfig should be nested inside generationConfig
-                body.generationConfig = {
-                    thinkingConfig: params.config.thinkingConfig
-                };
+                body.generationConfig.thinkingConfig = params.config.thinkingConfig;
             }
             if (params.config.responseSchema) {
-                body.responseSchema = this.cleanJsonSchema(params.config.responseSchema);
+                body.generationConfig.responseSchema = this.cleanJsonSchema(params.config.responseSchema);
             }
             if (params.config.responseMimeType) {
-                body.responseMimeType = params.config.responseMimeType;
+                body.generationConfig.responseMimeType = params.config.responseMimeType;
             }
         }
 
