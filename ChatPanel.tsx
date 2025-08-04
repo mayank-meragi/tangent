@@ -237,8 +237,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   }, [personaService]);
 
   // Persona selection handlers
-  const handlePersonaSelect = (persona: Persona) => {
-    setSelectedPersona(persona);
+  const handlePersonaSelect = async (persona: Persona) => {
+    try {
+      // Get persona with resolved file context
+      const personaWithContext = await personaService.getPersonaWithContext(persona);
+      setSelectedPersona(personaWithContext);
+    } catch (error) {
+      console.error('Failed to load persona with context:', error);
+      // Fallback to persona without context
+      setSelectedPersona(persona);
+    }
   };
 
   const handlePersonaClear = () => {

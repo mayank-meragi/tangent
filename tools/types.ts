@@ -141,6 +141,14 @@ export interface UpdateTemplatePayload {
 }
 
 // Persona data models for AI behavior modification
+export interface FileLink {
+  originalText: string;    // e.g., "[[diet-log.md]]"
+  filePath: string;        // e.g., "diet-log.md"
+  displayText?: string;    // e.g., "my diet log" from "[[diet-log.md|my diet log]]"
+  exists: boolean;         // whether file exists in vault
+  content?: string;        // cached file content
+}
+
 export interface Persona {
   id: string;
   name: string;
@@ -151,4 +159,6 @@ export interface Persona {
   created: string;
   updated: string;
   filePath?: string;         // Path to markdown file for user personas
+  linkedFiles?: FileLink[];  // Files linked using [[]] syntax
+  fileContext?: string;      // Resolved content from linked files
 } 

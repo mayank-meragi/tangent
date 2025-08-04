@@ -2425,6 +2425,22 @@ textarea:focus {
   letter-spacing: 0.5px;
 }
 
+.tangent-persona-files {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.tangent-persona-files-warning {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-warning);
+}
+
 .tangent-persona-check {
   display: flex;
   align-items: center;
@@ -2486,6 +2502,57 @@ textarea:focus {
   color: var(--text-muted);
   line-height: 1.5;
   white-space: pre-wrap;
+}
+
+.tangent-persona-linked-files {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.tangent-persona-linked-files-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.tangent-persona-linked-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tangent-persona-linked-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  font-size: 0.75em;
+}
+
+.tangent-persona-linked-file.exists {
+  color: var(--text-normal);
+}
+
+.tangent-persona-linked-file.missing {
+  color: var(--text-muted);
+  background: var(--background-modifier-error);
+}
+
+.tangent-persona-linked-file-name {
+  flex: 1;
+}
+
+.tangent-persona-linked-file-missing {
+  font-size: 0.7em;
+  color: var(--text-warning);
+  font-style: italic;
 }
 
 /* Persona Badge in Chat */

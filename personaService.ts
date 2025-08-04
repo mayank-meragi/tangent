@@ -1,5 +1,5 @@
 import { App, TFile, TFolder, EventRef } from 'obsidian';
-import { Persona } from './tools/types';
+import { Persona, FileLink } from './tools/types';
 import * as path from 'path';
 
 // Extend globalThis to include bundled personas
@@ -104,12 +104,12 @@ export class PersonaService {
       if (typeof globalThis.__SYSTEM_PERSONAS__ !== 'undefined') {
         return globalThis.__SYSTEM_PERSONAS__;
       }
-      
+
       // Fallback for development environment
       if (typeof window !== 'undefined' && (window as any).__SYSTEM_PERSONAS__) {
         return (window as any).__SYSTEM_PERSONAS__;
       }
-      
+
       return null;
     } catch (error) {
       console.error('Failed to load bundled personas:', error);
@@ -130,7 +130,7 @@ export class PersonaService {
         // Extract filename from relative path
         const fileName = path.basename(relativePath);
         const systemPersonaPath = `${this.personaFolder}/system/${fileName}`;
-        
+
         // Check if persona already exists (preserve user customizations)
         const existingFile = this.app.vault.getAbstractFileByPath(systemPersonaPath);
         if (existingFile) {
@@ -165,7 +165,7 @@ export class PersonaService {
    */
   private async loadBuiltInPersonasFromFolder(): Promise<void> {
     const builtInPersonasFolder = 'tangent/personas';
-    
+
     try {
       // Check if personas folder exists in the plugin directory
       const folder = this.app.vault.getAbstractFileByPath(builtInPersonasFolder);
@@ -220,7 +220,7 @@ export class PersonaService {
   private async loadPersonasFromFolder(folder: TFolder): Promise<{ loadedCount: number; errorCount: number }> {
     let loadedCount = 0;
     let errorCount = 0;
-    
+
     for (const child of folder.children) {
       if (child instanceof TFile && child.extension === 'md') {
         try {
@@ -240,7 +240,7 @@ export class PersonaService {
         errorCount += subResult.errorCount;
       }
     }
-    
+
     return { loadedCount, errorCount };
   }
 
@@ -251,7 +251,7 @@ export class PersonaService {
     try {
       const content = await this.app.vault.read(file);
       const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      
+
       if (!frontmatter) {
         console.warn(`No frontmatter found in ${file.path}`);
         return null;
@@ -271,6 +271,10 @@ export class PersonaService {
         return null;
       }
 
+      // Parse file links from persona content
+      const linkedFiles = this.parseFileLinks(personaContent);
+      const validatedLinks = await this.validateFileLinks(linkedFiles);
+
       return {
         id: frontmatter.id,
         name: frontmatter.name,
@@ -280,7 +284,8 @@ export class PersonaService {
         author: frontmatter.author || 'user',
         created: frontmatter.created || new Date().toISOString(),
         updated: frontmatter.updated || new Date().toISOString(),
-        filePath: file.path
+        filePath: file.path,
+        linkedFiles: validatedLinks
       };
     } catch (error) {
       console.error(`Error parsing persona from ${file.path}:`, error);
@@ -291,11 +296,130 @@ export class PersonaService {
 
 
   /**
+   * Parse file links from persona content using Obsidian [[]] syntax
+   */
+  private parseFileLinks(content: string): FileLink[] {
+    const fileLinks: FileLink[] = [];
+
+    // Regex to match Obsidian file links: [[filename]] or [[filename|display text]]
+    const linkRegex = /\[\[([^\]]+)\]\]/g;
+    let match;
+
+    while ((match = linkRegex.exec(content)) !== null) {
+      const fullMatch = match[0]; // e.g., "[[diet-log.md]]"
+      const linkContent = match[1]; // e.g., "diet-log.md" or "diet-log.md|my diet log"
+
+      // Check if there's a display text separator
+      const separatorIndex = linkContent.indexOf('|');
+      let filePath: string;
+      let displayText: string | undefined;
+
+      if (separatorIndex !== -1) {
+        filePath = linkContent.substring(0, separatorIndex).trim();
+        displayText = linkContent.substring(separatorIndex + 1).trim();
+      } else {
+        filePath = linkContent.trim();
+      }
+
+      // Skip if it's not a file link (e.g., [[#heading]] or [[^block]])
+      if (filePath.startsWith('#') || filePath.startsWith('^')) {
+        continue;
+      }
+
+      // Add .md extension if not present
+      if (!filePath.endsWith('.md')) {
+        filePath += '.md';
+      }
+
+      fileLinks.push({
+        originalText: fullMatch,
+        filePath: filePath,
+        displayText: displayText,
+        exists: false // Will be validated later
+      });
+    }
+
+    return fileLinks;
+  }
+
+  /**
+   * Validate file links and check if files exist
+   */
+  private async validateFileLinks(links: FileLink[]): Promise<FileLink[]> {
+    const validatedLinks: FileLink[] = [];
+
+    for (const link of links) {
+      try {
+        const file = this.app.vault.getAbstractFileByPath(link.filePath);
+        const exists = file instanceof TFile;
+
+        validatedLinks.push({
+          ...link,
+          exists: exists
+        });
+
+        if (!exists) {
+          console.warn(`Linked file not found: ${link.filePath}`);
+        }
+      } catch (error) {
+        console.error(`Error validating file link ${link.filePath}:`, error);
+        validatedLinks.push({
+          ...link,
+          exists: false
+        });
+      }
+    }
+
+    return validatedLinks;
+  }
+
+  /**
+   * Get persona with resolved file context
+   */
+  async getPersonaWithContext(persona: Persona): Promise<Persona> {
+    if (!persona.linkedFiles || persona.linkedFiles.length === 0) {
+      console.log(`[PersonaService] No linked files for persona: ${persona.name}`);
+      return persona;
+    }
+
+    console.log(`[PersonaService] Loading file context for persona: ${persona.name}`);
+    console.log(`[PersonaService] Linked files:`, persona.linkedFiles.map(f => `${f.filePath} (exists: ${f.exists})`));
+
+    const fileContexts: string[] = [];
+
+    for (const link of persona.linkedFiles) {
+      if (link.exists) {
+        try {
+          const file = this.app.vault.getAbstractFileByPath(link.filePath);
+          if (file instanceof TFile) {
+            const content = await this.app.vault.read(file);
+            const displayName = link.displayText || link.filePath;
+            fileContexts.push(`\n--- ${displayName} ---\n${content}\n`);
+            console.log(`[PersonaService] Successfully loaded file: ${link.filePath}`);
+          }
+        } catch (error) {
+          console.error(`Error reading linked file ${link.filePath}:`, error);
+        }
+      } else {
+        console.log(`[PersonaService] Skipping missing file: ${link.filePath}`);
+      }
+    }
+
+    const personaWithContext = {
+      ...persona,
+      fileContext: fileContexts.join('\n')
+    };
+
+    console.log(`[PersonaService] Persona context loaded: ${fileContexts.length} files`);
+    return personaWithContext;
+  }
+
+  /**
    * Validate persona structure
    */
   private validatePersonaStructure(frontmatter: any): boolean {
     const requiredFields = ['id', 'name', 'description', 'color', 'author', 'created', 'updated'];
-    
+
     for (const field of requiredFields) {
       if (!frontmatter[field]) {
         console.warn(`Missing required field: ${field}`);
@@ -334,7 +458,11 @@ export class PersonaService {
    */
   async getPersonaById(id: string): Promise<Persona | null> {
     await this.ensureInitialized();
-    return this.personas.get(id) || null;
+    const persona = this.personas.get(id);
+    if (!persona) return null;
+
+    // Return persona with resolved file context
+    return await this.getPersonaWithContext(persona);
   }
 
   /**

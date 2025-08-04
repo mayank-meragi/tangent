@@ -9,10 +9,10 @@ interface PersonaSelectorProps {
   onPersonaClear: () => void;
 }
 
-const PersonaSelector: React.FC<PersonaSelectorProps> = ({ 
-  personas, 
-  selectedPersona, 
-  onPersonaSelect, 
+const PersonaSelector: React.FC<PersonaSelectorProps> = ({
+  personas,
+  selectedPersona,
+  onPersonaSelect,
   onPersonaClear
 }) => {
   const [hoveredPersona, setHoveredPersona] = useState<string | null>(null);
@@ -44,7 +44,7 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 
         <div className="tangent-persona-options">
           {/* No Persona Option */}
-          <div 
+          <div
             className={`tangent-persona-option ${!selectedPersona ? 'selected' : ''}`}
             onClick={onPersonaClear}
             onMouseEnter={() => setHoveredPersona('none')}
@@ -68,16 +68,16 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({
 
           {/* Persona Options */}
           {personas.map(persona => (
-            <div 
-              key={persona.id} 
+            <div
+              key={persona.id}
               className={`tangent-persona-option ${isPersonaSelected(persona) ? 'selected' : ''} ${hoveredPersona === persona.id ? 'hovered' : ''}`}
               onClick={() => handlePersonaClick(persona)}
               onMouseEnter={() => setHoveredPersona(persona.id)}
               onMouseLeave={() => setHoveredPersona(null)}
             >
-              <div 
-                className="tangent-persona-color" 
-                style={{backgroundColor: persona.color}}
+              <div
+                className="tangent-persona-color"
+                style={{ backgroundColor: persona.color }}
               >
                 <LucidIcon name="user" size={16} />
               </div>
@@ -87,6 +87,18 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({
                 <div className="tangent-persona-author">
                   {persona.author === 'system' ? 'Built-in' : 'Custom'}
                 </div>
+                {persona.linkedFiles && persona.linkedFiles.length > 0 && (
+                  <div className="tangent-persona-files">
+                    <LucidIcon name="file-text" size={12} />
+                    <span>{persona.linkedFiles.length} linked file{persona.linkedFiles.length !== 1 ? 's' : ''}</span>
+                    {persona.linkedFiles.some(f => !f.exists) && (
+                      <span className="tangent-persona-files-warning">
+                        <LucidIcon name="alert-triangle" size={12} />
+                        Some files missing
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {isPersonaSelected(persona) && (
                 <div className="tangent-persona-check">
@@ -106,6 +118,27 @@ const PersonaSelector: React.FC<PersonaSelectorProps> = ({
             <div className="tangent-persona-preview-content">
               {selectedPersona.content}
             </div>
+            {selectedPersona.linkedFiles && selectedPersona.linkedFiles.length > 0 && (
+              <div className="tangent-persona-linked-files">
+                <div className="tangent-persona-linked-files-header">
+                  <LucidIcon name="link" size={14} />
+                  <span>Linked Files ({selectedPersona.linkedFiles.length})</span>
+                </div>
+                <div className="tangent-persona-linked-files-list">
+                  {selectedPersona.linkedFiles.map((link, index) => (
+                    <div key={index} className={`tangent-persona-linked-file ${link.exists ? 'exists' : 'missing'}`}>
+                      <LucidIcon name={link.exists ? "file-text" : "file-x"} size={12} />
+                      <span className="tangent-persona-linked-file-name">
+                        {link.displayText || link.filePath}
+                      </span>
+                      {!link.exists && (
+                        <span className="tangent-persona-linked-file-missing">(missing)</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

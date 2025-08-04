@@ -165,10 +165,26 @@ Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'nume
  */
 export const createSystemPrompt = (persona?: Persona): string => {
   if (persona) {
-    return `${systemPrompt}
+    console.log(`[SystemPrompt] Creating prompt for persona: ${persona.name}`);
+    console.log(`[SystemPrompt] Persona has file context: ${!!persona.fileContext}`);
+
+    let enhancedPrompt = `${systemPrompt}
 
 # Active Persona: ${persona.name}
 ${persona.content}`;
+
+    // Add file context if available
+    if (persona.fileContext) {
+      console.log(`[SystemPrompt] Adding file context to system prompt`);
+      enhancedPrompt += `
+
+# Linked Files Context
+The following files are linked to this persona and provide additional context:
+
+${persona.fileContext}`;
+    }
+
+    return enhancedPrompt;
   }
 
   return systemPrompt;
