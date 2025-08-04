@@ -326,10 +326,8 @@ export class PersonaService {
         continue;
       }
 
-      // Add .md extension if not present
-      if (!filePath.endsWith('.md')) {
-        filePath += '.md';
-      }
+      // Don't add .md extension - Obsidian handles this automatically
+      // Keep the original filePath as-is for internal links
 
       fileLinks.push({
         originalText: fullMatch,
@@ -343,23 +341,38 @@ export class PersonaService {
   }
 
   /**
-   * Validate file links and check if files exist
-   */
+ * Validate file links and check if files exist
+ */
   private async validateFileLinks(links: FileLink[]): Promise<FileLink[]> {
     const validatedLinks: FileLink[] = [];
 
     for (const link of links) {
       try {
-        const file = this.app.vault.getAbstractFileByPath(link.filePath);
-        const exists = file instanceof TFile;
+        // Try the original path first
+        let file = this.app.vault.getAbstractFileByPath(link.filePath);
+        let exists = file instanceof TFile;
+        let actualPath = link.filePath;
+
+        // If not found, try with .md extension (Obsidian's internal linking behavior)
+        if (!exists && !link.filePath.endsWith('.md')) {
+          const pathWithExtension = link.filePath + '.md';
+          file = this.app.vault.getAbstractFileByPath(pathWithExtension);
+          exists = file instanceof TFile;
+          if (exists) {
+            actualPath = pathWithExtension;
+          }
+        }
 
         validatedLinks.push({
           ...link,
+          filePath: actualPath, // Use the actual resolved path
           exists: exists
         });
 
         if (!exists) {
-          console.warn(`Linked file not found: ${link.filePath}`);
+          console.warn(`Linked file not found: ${link.filePath} (tried with and without .md extension)`);
+        } else {
+          console.log(`Linked file found: ${actualPath}`);
         }
       } catch (error) {
         console.error(`Error validating file link ${link.filePath}:`, error);
