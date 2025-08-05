@@ -24,7 +24,7 @@ import PersonaBadge from './src/components/PersonaBadge';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController, onSearchResults?: (searchQuery: string, searchResults: any[]) => void) => Promise<void>;
+  streamAIResponse: any;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -215,6 +215,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // State for which view is active
   const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  // Usage metadata state
+  const [usageMetadata, setUsageMetadata] = React.useState<any | null>(null);
 
   // Update thinking enabled state when model changes
   useEffect(() => {
@@ -565,9 +567,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
 
-
-
-
   // Function to get current active file and add it to context
   const getCurrentFileContext = async () => {
     // Don't auto-add if user has manually removed the current file
@@ -903,6 +902,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   }, [input]);
 
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
+    setUsageMetadata(null);
+    
     if (isStreaming) return;
 
     // Create new AbortController for this request
@@ -1080,7 +1081,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               searchResults: currentSearchResults
             });
           }
-        }
+        },
+        (usage: any) => setUsageMetadata(usage)
       );
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -1523,6 +1525,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               setWebSearchEnabled={setWebSearchEnabled}
               // Cancellation prop
               onCancelStreaming={cancelStreaming}
+              usageMetadata={usageMetadata}
             />
           </div>
         </>
