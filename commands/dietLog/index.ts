@@ -231,38 +231,42 @@ class InsertionsModal extends Modal {
         const { contentEl } = this;
         contentEl.empty();
 
-        // Create modal content
-        const container = contentEl.createDiv('insertions-modal');
+        // Modal container
+        const container = contentEl.createDiv({ cls: 'insertions-modal obsidian-modal' });
 
         // Header
-        const header = container.createDiv('insertions-header');
-        const title = header.createEl('h2');
-        title.setText('Insertions');
+        const header = container.createDiv({ cls: 'modal-title' });
+        header.createEl('h2', { text: 'Diet Log Suggestions' });
 
-        // Insertions list
-        const insertionsList = container.createDiv('insertions-list');
-        insertionsList.setText(this.insertions.map(insertion => `${insertion.startLine} | ${insertion.content}`).join('\n'));
-
-        // Reasoning
-        const reasoning = container.createDiv('insertions-reasoning');
-        reasoning.setText(this.reasoning);
-
-        // Actions
-        const actions = container.createDiv('insertions-actions');
-
-        const cancelBtn = actions.createEl('button', { text: 'Cancel' });
-        cancelBtn.addClass('mod-warning');
-        cancelBtn.addEventListener('click', () => {
-            this.close();
+        // Insertions section
+        const section = container.createDiv({ cls: 'insertions-section' });
+        section.createEl('h3', { text: 'Proposed Insertions' });
+        const list = section.createEl('ul', { cls: 'insertions-list' });
+        this.insertions.forEach(insertion => {
+            const item = list.createEl('li', { cls: 'insertions-list-item' });
+            // Line number badge
+            const badge = item.createSpan({ cls: 'insertions-line-badge' });
+            badge.setText(`#${insertion.startLine}`);
+            // Content
+            const content = item.createSpan({ cls: 'insertions-content' });
+            content.setText(insertion.content);
         });
 
+        // Reasoning section
+        const reasoningSection = container.createDiv({ cls: 'insertions-reasoning-section' });
+        reasoningSection.createEl('h3', { text: 'Reasoning' });
+        const reasoningBox = reasoningSection.createDiv({ cls: 'insertions-reasoning-box' });
+        reasoningBox.setText(this.reasoning);
+
+        // Actions (footer)
+        const actions = container.createDiv({ cls: 'modal-button-container' });
+        const cancelBtn = actions.createEl('button', { text: 'Cancel' });
+        cancelBtn.addClass('mod-warning');
+        cancelBtn.addEventListener('click', () => this.close());
         const confirmBtn = actions.createEl('button', { text: 'Confirm' });
         confirmBtn.addClass('mod-cta');
         confirmBtn.addEventListener('click', async () => {
-            // Open the diet log file
             const dietLogFile = this.app.vault.getFileByPath('diet-log.md');
-
-            // Write the insertions to the diet log file
             const fileContent = await this.app.vault.cachedRead(dietLogFile!);
             const newFileContent = insertNumberedContent(fileContent, this.insertions);
             await this.app.vault.modify(dietLogFile!, newFileContent);
