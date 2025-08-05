@@ -1,7 +1,25 @@
 import React, { useState } from 'react';
 // Simple Modal component
-const UsageInfoModal: React.FC<{ open: boolean; onClose: () => void; usageMetadata?: UsageMetadata }> = ({ open, onClose, usageMetadata }) => {
+import { calculateModelCost } from '../utils/costCalculation';
+
+const UsageInfoModal: React.FC<{ open: boolean; onClose: () => void; usageMetadata?: UsageMetadata; selectedModel?: any }> = ({ open, onClose, usageMetadata, selectedModel }) => {
   if (!open) return null;
+
+  // Calculate costs if possible
+  let costInfo: { inputCost: number; outputCost: number; totalCost: number } | null = null;
+  if (
+    usageMetadata &&
+    typeof usageMetadata.promptTokenCount === 'number' &&
+    typeof usageMetadata.candidatesTokenCount === 'number' &&
+    selectedModel && selectedModel.id
+  ) {
+    costInfo = calculateModelCost(
+      selectedModel.id,
+      usageMetadata.promptTokenCount,
+      usageMetadata.candidatesTokenCount
+    );
+  }
+
   return (
     <div style={{
       zIndex: 9999,
@@ -59,6 +77,13 @@ const UsageInfoModal: React.FC<{ open: boolean; onClose: () => void; usageMetada
                   <li key={i}>{d.modality}: <b>{d.tokenCount}</b></li>
                 ))}
               </ul>
+            </div>
+          )}
+          {costInfo && (
+            <div style={{marginTop: 12, fontWeight: 500}}>
+              <div>Input cost: <b>₹{costInfo.inputCost.toFixed(4)}</b></div>
+              <div>Output cost: <b>₹{costInfo.outputCost.toFixed(4)}</b></div>
+              <div>Total cost: <b>₹{costInfo.totalCost.toFixed(4)}</b></div>
             </div>
           )}
         </>
@@ -231,7 +256,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
 
   return (
     <>
-      <UsageInfoModal open={showUsageModal} onClose={() => setShowUsageModal(false)} usageMetadata={usageMetadata} />
+      <UsageInfoModal open={showUsageModal} onClose={() => setShowUsageModal(false)} usageMetadata={usageMetadata} selectedModel={selectedModel} />
       <div className="tangent-chat-input-main-container" style={{marginTop: 0}}>
       {/* Context Files */}
       {selectedFiles.length > 0 && (
