@@ -625,7 +625,6 @@ If your plugin does not need CSS, delete this file.
 
 .tangent-chat-panel-input-area {
 	padding: 0;
-	border-top: 1px solid var(--background-modifier-border);
 	background-color: var(--background-primary);
 }
 
@@ -820,13 +819,9 @@ If your plugin does not need CSS, delete this file.
 	background: var(--interactive-accent-hover);
 }
 .tangent-model-select {
-	width: 60px;
-	min-width: 45px;
-	max-width: 80px;
 	font-size: 0.65em;
 	padding: 1px 3px;
 	margin-right: 4px;
-	border-radius: 2px;
 }
 .tangent-chat-panel-root {
 	display: flex;

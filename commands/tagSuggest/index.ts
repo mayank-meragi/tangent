@@ -100,7 +100,7 @@ Please provide a structured response with suggested tags. Consider:
 
       console.log('Gemini AI Response:', result);
 
-      const structuredResponse = result.text;
+      const structuredResponse = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!structuredResponse) {
         console.error('No response text received from Gemini AI');
