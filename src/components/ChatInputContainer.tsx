@@ -407,6 +407,8 @@ const UsageInfoModal: React.FC<{
         boxShadow: '0 4px 32px 0 rgba(0,0,0,0.25)',
         border: '1px solid var(--background-modifier-border)',
         position: 'relative',
+        maxHeight: '50vh',
+        overflowY: 'auto',
       }}>
         <h5>Token Usage & Cost Per Turn</h5>
         <div style={{overflowX: 'auto'}}>
