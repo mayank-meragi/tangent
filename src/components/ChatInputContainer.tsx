@@ -1,96 +1,4 @@
 import React, { useState } from 'react';
-// Simple Modal component
-import { calculateModelCost } from '../utils/costCalculation';
-
-const UsageInfoModal: React.FC<{ open: boolean; onClose: () => void; usageMetadata?: UsageMetadata; selectedModel?: any }> = ({ open, onClose, usageMetadata, selectedModel }) => {
-  if (!open) return null;
-
-  // Calculate costs if possible
-  let costInfo: { inputCost: number; outputCost: number; totalCost: number } | null = null;
-  if (
-    usageMetadata &&
-    typeof usageMetadata.promptTokenCount === 'number' &&
-    typeof usageMetadata.candidatesTokenCount === 'number' &&
-    selectedModel && selectedModel.id
-  ) {
-    costInfo = calculateModelCost(
-      selectedModel.id,
-      usageMetadata.promptTokenCount,
-      usageMetadata.candidatesTokenCount
-    );
-  }
-
-  return (
-    <div style={{
-      zIndex: 9999,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'rgba(0,0,0,0.35)'
-    }}>
-      <div style={{
-        background: 'var(--background-primary, #23242a)',
-        color: 'var(--text-normal, #e0e0e0)',
-        borderRadius: 16,
-        minWidth: 320,
-        maxWidth: 440,
-        padding: '2em 2em 1.5em 2em',
-        boxShadow: '0 4px 32px 0 rgba(0,0,0,0.25)',
-        border: '1px solid var(--background-modifier-border)',
-        position: 'relative',
-      }}>
-        <button onClick={onClose} style={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          fontSize: 18
-        }} aria-label="Close usage info modal">
-          <LucidIcon name="x" size={18} />
-        </button>
-        <h3 style={{marginTop: 0, marginBottom: 16, fontWeight: 600, fontSize: '1.2em'}}>Token Usage Info</h3>
-        <>
-          <h6>Prompt tokens: <b>{usageMetadata?.promptTokenCount ?? '?'}</b></h6>
-          <h6>Response tokens: <b>{usageMetadata?.candidatesTokenCount ?? '?'}</b></h6>
-          <h6>Total tokens: <b>{usageMetadata?.totalTokenCount ?? '?'}</b></h6>
-          {typeof usageMetadata?.cachedContentTokenCount === 'number' && (
-            <h6>Cached content tokens: <b>{usageMetadata.cachedContentTokenCount}</b></h6>
-          )}
-          {usageMetadata?.cacheTokensDetails && usageMetadata.cacheTokensDetails.length > 0 && (
-            <div style={{marginTop: 8}}>
-              <div style={{fontWeight: 500, marginBottom: 2}}>Cache tokens details:</div>
-              <ul style={{margin: 0, paddingLeft: 18}}>
-                {usageMetadata.cacheTokensDetails.map((d, i) => (
-                  <li key={i}>{d.modality}: <b>{d.tokenCount}</b></li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {usageMetadata?.promptTokensDetails && usageMetadata.promptTokensDetails.length > 0 && (
-            <div style={{marginTop: 8}}>
-              <div style={{fontWeight: 500, marginBottom: 2}}>Prompt tokens details:</div>
-              <ul style={{margin: 0, paddingLeft: 18}}>
-                {usageMetadata.promptTokensDetails.map((d, i) => (
-                  <li key={i}>{d.modality}: <b>{d.tokenCount}</b></li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {costInfo && (
-            <div style={{marginTop: 12, fontWeight: 500}}>
-              <div>Input cost: <b>₹{costInfo.inputCost.toFixed(4)}</b></div>
-              <div>Output cost: <b>₹{costInfo.outputCost.toFixed(4)}</b></div>
-              <div>Total cost: <b>₹{costInfo.totalCost.toFixed(4)}</b></div>
-            </div>
-          )}
-        </>
-      </div>
-    </div>
-  );
-};
 import LucidIcon from './LucidIcon';
 import IconButton from './IconButton';
 import ToggleButton from './ToggleButton';
@@ -142,7 +50,8 @@ type ChatInputContainerProps = {
   setWebSearchEnabled: (enabled: boolean) => void;
   // Cancellation prop
   onCancelStreaming?: () => void;
-  usageMetadata?: UsageMetadata
+  usageMetadataList?: UsageMetadata[];
+  costInfoList?: { inputCost: number; outputCost: number; totalCost: number }[];
 };
 
 
@@ -184,7 +93,8 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   webSearchEnabled,
   setWebSearchEnabled,
   onCancelStreaming,
-  usageMetadata
+  usageMetadataList = [],
+  costInfoList = []
 }) => {
   // Convert files to dropdown items for the generic dropdown
   const fileDropdownItems: DropdownItem[] = filteredFiles.map(file => ({
@@ -256,7 +166,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
 
   return (
     <>
-      <UsageInfoModal open={showUsageModal} onClose={() => setShowUsageModal(false)} usageMetadata={usageMetadata} selectedModel={selectedModel} />
+      <UsageInfoModal open={showUsageModal} usageMetadataList={usageMetadataList} costInfoList={costInfoList} selectedModel={selectedModel} />
       <div className="tangent-chat-input-main-container" style={{marginTop: 0}}>
       {/* Context Files */}
       {selectedFiles.length > 0 && (
@@ -414,11 +324,16 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         {/* Action Buttons - Bottom Right */}
         <div className="tangent-action-buttons" style={{display: 'flex', alignItems: 'center', gap: 8}}>
           {/* Info Icon Button for Usage Metadata */}
+          {(() => {
+            console.log('[DEBUG] usageMetadataList:', usageMetadataList);
+            console.log('[DEBUG] costInfoList:', costInfoList);
+            return null;
+          })()}
           <IconButton
             icon={<LucidIcon name="info" size={16} />}
             ariaLabel="Show token usage info"
-            onClick={() => setShowUsageModal(true)}
-            disabled={!usageMetadata}
+            onClick={() => setShowUsageModal(!showUsageModal)}
+            disabled={(!usageMetadataList || usageMetadataList.length === 0) && (!costInfoList || costInfoList.length === 0)}
             title="Show token usage info"
             style={{ marginRight: 4, color: 'var(--text-muted)' }}
           />
@@ -468,3 +383,67 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
 }
 
 export default ChatInputContainer; 
+
+const UsageInfoModal: React.FC<{ 
+  open: boolean; usageMetadataList?: UsageMetadata[]; costInfoList?: { inputCost: number; outputCost: number; totalCost: number }[]; selectedModel?: any }> = ({ open, usageMetadataList = [], costInfoList = [], selectedModel }) => {
+  if (!open) return null;
+
+  return (
+    <div style={{
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <div style={{
+        background: 'var(--background-secondary)',
+        color: 'var(--text-normal, #e0e0e0)',
+        borderRadius: '8px 8px 0 0',
+        minWidth: 320,
+        maxWidth: 700,
+        padding: '10px',
+        marginLeft: 25,
+        marginRight: 25,
+        boxShadow: '0 4px 32px 0 rgba(0,0,0,0.25)',
+        border: '1px solid var(--background-modifier-border)',
+        position: 'relative',
+      }}>
+        <h5>Token Usage & Cost Per Turn</h5>
+        <div style={{overflowX: 'auto'}}>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+            <thead>
+              <tr style={{borderBottom: '1px solid var(--background-modifier-border)'}}>
+                <th>Turn</th>
+                <th>Inpt tokens</th>
+                <th>Opt tokens</th>
+                <th>Total tokens</th>
+                <th>Input cost (₹)</th>
+                <th>Output cost (₹)</th>
+                <th style={{padding: 6}}>Total cost (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageMetadataList.map((usage, idx) => {
+                const cost = costInfoList[idx];
+                return (
+                  <tr key={idx} style={{borderBottom: '1px solid var(--background-modifier-border)'}}>
+                    <td style={{textAlign: 'center'}}>{idx + 1}</td>
+                    <td style={{textAlign: 'right'}}>{usage?.promptTokenCount ?? '?'}</td>
+                    <td style={{textAlign: 'right'}}>{usage?.candidatesTokenCount ?? '?'}</td>
+                    <td style={{textAlign: 'right'}}>{usage?.totalTokenCount ?? '?'}</td>
+                    <td style={{textAlign: 'right'}}>{cost ? cost.inputCost.toFixed(4) : '?'}</td>
+                    <td style={{textAlign: 'right'}}>{cost ? cost.outputCost.toFixed(4) : '?'}</td>
+                    <td style={{textAlign: 'right'}}>{cost ? cost.totalCost.toFixed(4) : '?'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{marginTop: 16, fontWeight: 500, textAlign: 'right'}}>
+          <span>Total cost so far: <b>₹{costInfoList.reduce((sum, c) => sum + (c?.totalCost || 0), 0).toFixed(4)}</b></span>
+        </div>
+      </div>
+    </div>
+  );
+};

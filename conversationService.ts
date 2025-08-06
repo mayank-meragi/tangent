@@ -3,6 +3,8 @@ import { ChatMessage } from './ChatMessagesContext';
 import { ConversationMessage } from './ai';
 import { Persona } from './tools/types';
 
+import { UsageMetadata } from './ai';
+
 export interface Conversation {
   id: string;
   title: string;
@@ -10,6 +12,12 @@ export interface Conversation {
   createdAt: string;
   updatedAt: string;
   selectedPersona?: Persona;
+  usageMetadataList?: UsageMetadata[];
+  costInfoList?: {
+    inputCost: number;
+    outputCost: number;
+    totalCost: number;
+  }[];
 }
 
 export class ConversationService {
@@ -29,12 +37,22 @@ export class ConversationService {
 
   async saveConversation(conversation: Conversation): Promise<void> {
     await this.ensureConversationsFolder();
-    
     const filename = `${conversation.id}.json`;
     const filepath = `${this.conversationsFolder}/${filename}`;
-    
-    const content = JSON.stringify(conversation, null, 2);
-    
+
+    // Only persist relevant fields (in case conversation has extra runtime fields)
+    const toSave: Conversation = {
+      id: conversation.id,
+      title: conversation.title,
+      messages: conversation.messages,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      selectedPersona: conversation.selectedPersona,
+      usageMetadataList: conversation.usageMetadataList,
+      costInfoList: conversation.costInfoList
+    };
+
+    const content = JSON.stringify(toSave, null, 2);
     try {
       const existingFile = this.app.vault.getAbstractFileByPath(filepath);
       if (existingFile instanceof TFile) {
@@ -51,40 +69,45 @@ export class ConversationService {
   async loadConversation(conversationId: string): Promise<Conversation | null> {
     const filename = `${conversationId}.json`;
     const filepath = `${this.conversationsFolder}/${filename}`;
-    
     try {
       const file = this.app.vault.getAbstractFileByPath(filepath);
       if (file instanceof TFile) {
         const content = await this.app.vault.read(file);
-        return JSON.parse(content);
+        const parsed = JSON.parse(content);
+        // Backward compatibility: migrate single usageMetadata/costInfo to lists if needed
+        return {
+          ...parsed,
+          usageMetadataList: parsed.usageMetadataList || (parsed.usageMetadata ? [parsed.usageMetadata] : []),
+          costInfoList: parsed.costInfoList || (parsed.costInfo ? [parsed.costInfo] : [])
+        };
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
     }
-    
     return null;
   }
 
   async getAllConversations(): Promise<Conversation[]> {
     await this.ensureConversationsFolder();
-    
     const conversations: Conversation[] = [];
     const folder = this.app.vault.getAbstractFileByPath(this.conversationsFolder);
-    
     if (folder && 'children' in folder) {
       for (const child of (folder as any).children) {
         if (child instanceof TFile && child.extension === 'json') {
           try {
             const content = await this.app.vault.read(child);
-            const conversation = JSON.parse(content);
-            conversations.push(conversation);
+            const parsed = JSON.parse(content);
+            conversations.push({
+              ...parsed,
+              usageMetadataList: parsed.usageMetadataList || (parsed.usageMetadata ? [parsed.usageMetadata] : []),
+              costInfoList: parsed.costInfoList || (parsed.costInfo ? [parsed.costInfo] : [])
+            });
           } catch (error) {
             console.error(`Failed to load conversation from ${child.path}:`, error);
           }
         }
       }
     }
-    
     // Sort by updatedAt descending (most recent first)
     return conversations.sort((a, b) => 
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -109,7 +132,7 @@ export class ConversationService {
   createConversationFromMessages(messages: ChatMessage[], title?: string, selectedPersona?: Persona): Conversation {
     const id = Date.now().toString(36) + Math.random().toString(36).substr(2);
     const now = new Date().toISOString();
-    
+
     // Generate title from first user message if not provided
     if (!title) {
       const firstUserMessage = messages.find(msg => msg.role === 'user');
@@ -117,23 +140,49 @@ export class ConversationService {
         ? firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')
         : 'New Conversation';
     }
-    
+
+    // Always initialize usage/cost lists
     return {
       id,
       title,
       messages: [...messages],
       createdAt: now,
       updatedAt: now,
-      selectedPersona: selectedPersona || undefined
+      selectedPersona: selectedPersona || undefined,
+      usageMetadataList: [],
+      costInfoList: []
     };
   }
 
-  updateConversation(conversation: Conversation, messages: ChatMessage[], selectedPersona?: Persona): Conversation {
+  updateConversation(
+    conversation: Conversation,
+    messages: ChatMessage[],
+    selectedPersona?: Persona,
+    usageMetadata?: UsageMetadata,
+    costInfo?: { inputCost: number; outputCost: number; totalCost: number }
+  ): Conversation {
+    // Append to lists if provided, else keep previous
+    const usageMetadataList = conversation.usageMetadataList ? [...conversation.usageMetadataList] : [];
+    const costInfoList = conversation.costInfoList ? [...conversation.costInfoList] : [];
+    console.log('[DEBUG:conversationService.updateConversation] BEFORE', {
+      usageMetadataList: [...usageMetadataList],
+      costInfoList: [...costInfoList],
+      usageMetadata,
+      costInfo
+    });
+    if (usageMetadata) usageMetadataList.push(usageMetadata);
+    if (costInfo) costInfoList.push(costInfo);
+    console.log('[DEBUG:conversationService.updateConversation] AFTER', {
+      usageMetadataList: [...usageMetadataList],
+      costInfoList: [...costInfoList]
+    });
     return {
       ...conversation,
       messages: [...messages],
       updatedAt: new Date().toISOString(),
-      selectedPersona: selectedPersona || conversation.selectedPersona
+      selectedPersona: selectedPersona || conversation.selectedPersona,
+      usageMetadataList,
+      costInfoList
     };
   }
 

@@ -12,9 +12,9 @@ export function calculateModelCost(
   inputTokens: number,
   outputTokens: number,
   currencyMultiplier = 85
-): { inputCost: number; outputCost: number; totalCost: number } | null {
+): { inputCost: number; outputCost: number; totalCost: number } | undefined {
   const model: ModelConfig | undefined = MODEL_CONFIGS.find(m => m.id === modelId);
-  if (!model || !model.inputCostPerMillion || !model.outputCostPerMillion) return null;
+  if (!model || !model.inputCostPerMillion || !model.outputCostPerMillion) return;
 
   const getPrice = (arr: PriceByContext[], tokens: number): number => {
     // Find the best price tier for the given context size

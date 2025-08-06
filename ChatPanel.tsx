@@ -21,6 +21,7 @@ import { VariableInputModal } from './src/components/VariableInputModal';
 import TemplateSettingsPreview from './src/components/TemplateSettingsPreview';
 import PersonaSelector from './src/components/PersonaSelector';
 import PersonaBadge from './src/components/PersonaBadge';
+import { calculateModelCost } from 'src/utils/costCalculation';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
@@ -1082,7 +1083,42 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             });
           }
         },
-        (usage: any) => setUsageMetadata(usage)
+        (usage: any) => {
+          setUsageMetadata(usage);
+          // Update currentConversation with new usage/cost data if available
+          console.log('[DEBUG:AI callback] received usage:', usage);
+          console.log('[DEBUG:AI callback] currentConversation before update:', currentConversation);
+          setCurrentConversation(prev => {
+            // Try to get cost info from selectedModel and usage
+            let costInfo = undefined;
+            if (usage && typeof usage.promptTokenCount === 'number' && typeof usage.candidatesTokenCount === 'number' && selectedModel && selectedModel.id) {
+              try {
+                costInfo = calculateModelCost(
+                  selectedModel.id,
+                  usage.promptTokenCount,
+                  usage.candidatesTokenCount
+                );
+              } catch (e) {
+                // ignore if not available
+              }
+            }
+            // If prev is null, create a new conversation from messages
+            const baseConversation = prev ?? conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
+            console.log('[DEBUG:AI callback] baseConversation:', baseConversation);
+            const updatedConversation = conversationService.updateConversation(
+              baseConversation,
+              messages,
+              selectedPersona || undefined,
+              usage,
+              costInfo
+            );
+            console.log('[DEBUG:AI callback] usage:', usage);
+            console.log('[DEBUG:AI callback] costInfo:', costInfo);
+            console.log('[DEBUG:AI callback] updatedConversation.usageMetadataList:', updatedConversation.usageMetadataList);
+            console.log('[DEBUG:AI callback] updatedConversation.costInfoList:', updatedConversation.costInfoList);
+            return updatedConversation;
+          });
+        }
       );
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -1255,6 +1291,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       hasInlineData: msg.parts.some(part => part.inlineData)
     })));
 
+    // Ensure currentConversation is set before streaming AI response
+    if (!currentConversation) {
+      const newConversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
+      setCurrentConversation(newConversation);
+    }
     setIsStreaming(true);
     try {
       await continueAIResponse(conversationHistory, conversationHistory.length);
@@ -1487,6 +1528,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
           {/* Input Area */}
           <div className="tangent-chat-panel-input-area">
+            {(() => {
+              console.log('[DEBUG:ChatPanel] usageMetadataList:', currentConversation?.usageMetadataList);
+              console.log('[DEBUG:ChatPanel] costInfoList:', currentConversation?.costInfoList);
+              return null;
+            })()}
             <ChatInputContainer
               selectedFiles={selectedFiles}
               input={input}
@@ -1525,7 +1571,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               setWebSearchEnabled={setWebSearchEnabled}
               // Cancellation prop
               onCancelStreaming={cancelStreaming}
-              usageMetadata={usageMetadata}
+          usageMetadataList={currentConversation?.usageMetadataList || []}
+          costInfoList={currentConversation?.costInfoList || []}
             />
           </div>
         </>
