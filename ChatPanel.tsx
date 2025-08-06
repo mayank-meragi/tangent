@@ -21,10 +21,11 @@ import { VariableInputModal } from './src/components/VariableInputModal';
 import TemplateSettingsPreview from './src/components/TemplateSettingsPreview';
 import PersonaSelector from './src/components/PersonaSelector';
 import PersonaBadge from './src/components/PersonaBadge';
+import { calculateModelCost } from 'src/utils/costCalculation';
 
 export interface ChatPanelProps {
   geminiApiKey: string;
-  streamAIResponse: (prompt: string, onToken: (token: string) => void, modelId: string, onToolCall: (toolName: string, toolArgs: any) => void, onToolResult: (toolName: string, result: any) => void, onToolsComplete: (toolResults: string) => void, conversationHistory?: ConversationMessage[], thinkingBudget?: number, onThinking?: (thoughts: string) => void, onToolConfirmationNeeded?: (pendingTool: PendingToolCall) => Promise<ToolConfirmationResult>, webSearchEnabled?: boolean, abortController?: AbortController, onSearchResults?: (searchQuery: string, searchResults: any[]) => void) => Promise<void>;
+  streamAIResponse: any;
   app: any; // Obsidian App instance
   unifiedToolManager?: any; // UnifiedToolManager instance
 }
@@ -215,6 +216,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // State for which view is active
   const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  // Usage metadata state
+  const [usageMetadata, setUsageMetadata] = React.useState<any | null>(null);
 
   // Update thinking enabled state when model changes
   useEffect(() => {
@@ -565,9 +568,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   };
 
 
-
-
-
   // Function to get current active file and add it to context
   const getCurrentFileContext = async () => {
     // Don't auto-add if user has manually removed the current file
@@ -903,6 +903,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   }, [input]);
 
   const continueAIResponse = async (existingConversationHistory?: ConversationMessage[], processedMessageCount?: number) => {
+    setUsageMetadata(null);
+    
     if (isStreaming) return;
 
     // Create new AbortController for this request
@@ -1080,6 +1082,42 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               searchResults: currentSearchResults
             });
           }
+        },
+        (usage: any) => {
+          setUsageMetadata(usage);
+          // Update currentConversation with new usage/cost data if available
+          console.log('[DEBUG:AI callback] received usage:', usage);
+          console.log('[DEBUG:AI callback] currentConversation before update:', currentConversation);
+          setCurrentConversation(prev => {
+            // Try to get cost info from selectedModel and usage
+            let costInfo = undefined;
+            if (usage && typeof usage.promptTokenCount === 'number' && typeof usage.candidatesTokenCount === 'number' && selectedModel && selectedModel.id) {
+              try {
+                costInfo = calculateModelCost(
+                  selectedModel.id,
+                  usage.promptTokenCount,
+                  usage.candidatesTokenCount
+                );
+              } catch (e) {
+                // ignore if not available
+              }
+            }
+            // If prev is null, create a new conversation from messages
+            const baseConversation = prev ?? conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
+            console.log('[DEBUG:AI callback] baseConversation:', baseConversation);
+            const updatedConversation = conversationService.updateConversation(
+              baseConversation,
+              messages,
+              selectedPersona || undefined,
+              usage,
+              costInfo
+            );
+            console.log('[DEBUG:AI callback] usage:', usage);
+            console.log('[DEBUG:AI callback] costInfo:', costInfo);
+            console.log('[DEBUG:AI callback] updatedConversation.usageMetadataList:', updatedConversation.usageMetadataList);
+            console.log('[DEBUG:AI callback] updatedConversation.costInfoList:', updatedConversation.costInfoList);
+            return updatedConversation;
+          });
         }
       );
     } catch (error) {
@@ -1253,6 +1291,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
       hasInlineData: msg.parts.some(part => part.inlineData)
     })));
 
+    // Ensure currentConversation is set before streaming AI response
+    if (!currentConversation) {
+      const newConversation = conversationService.createConversationFromMessages(messages, undefined, selectedPersona || undefined);
+      setCurrentConversation(newConversation);
+    }
     setIsStreaming(true);
     try {
       await continueAIResponse(conversationHistory, conversationHistory.length);
@@ -1485,6 +1528,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
 
           {/* Input Area */}
           <div className="tangent-chat-panel-input-area">
+            {(() => {
+              console.log('[DEBUG:ChatPanel] usageMetadataList:', currentConversation?.usageMetadataList);
+              console.log('[DEBUG:ChatPanel] costInfoList:', currentConversation?.costInfoList);
+              return null;
+            })()}
             <ChatInputContainer
               selectedFiles={selectedFiles}
               input={input}
@@ -1523,6 +1571,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
               setWebSearchEnabled={setWebSearchEnabled}
               // Cancellation prop
               onCancelStreaming={cancelStreaming}
+          usageMetadataList={currentConversation?.usageMetadataList || []}
+          costInfoList={currentConversation?.costInfoList || []}
             />
           </div>
         </>

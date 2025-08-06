@@ -2,12 +2,13 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
-import { streamAIResponse } from './ai';
+import { streamAIResponse, UsageMetadata } from './ai';
 import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
 import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
 import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
 import { TemplateService } from './templateService';
 import { createDietLogCommand, createTagSuggestCommand } from './commands';
+import { on } from 'events';
 
 // Remember to rename these classes and interfaces!
 
@@ -1044,7 +1045,8 @@ class ChatPanelView extends ItemView {
 			onToolConfirmationNeeded?: (pendingTool: any) => Promise<any>,
 			webSearchEnabled?: boolean,
 			abortController?: AbortController,
-			onSearchResults?: (searchQuery: string, searchResults: any[]) => void
+			onSearchResults?: (searchQuery: string, searchResults: any[]) => void,
+			onUsageMetadata?: (usage: UsageMetadata) => void
 		) => {
 			await streamAIResponse({
 				apiKey: this.plugin.settings.geminiApiKey || '',
@@ -1063,6 +1065,7 @@ class ChatPanelView extends ItemView {
 				webSearchEnabled: webSearchEnabled || false,
 				abortController,
 				onSearchResults,
+				onUsageMetadata
 			});
 		};
 

@@ -30,24 +30,22 @@ export interface ConversationMessage {
   }>;
 }
 
-export async function streamAIResponse({
-  apiKey,
-  modelId,
-  messages,
-  onToken,
-  onToolCall,
-  onToolResult,
-  onToolsComplete,
-  onThinking,
-  onToolConfirmationNeeded,
-  app,
-  thinkingBudget = 0,
-  unifiedToolManager,
-  maxNestedCalls = 3, // Prevent infinite recursion
-  webSearchEnabled = false, // New parameter for web search
-  abortController, // Add AbortController parameter
-  onSearchResults, // Add callback for search results
-}: {
+export interface UsageMetadata {
+  promptTokenCount: number;
+  candidatesTokenCount: number;
+  totalTokenCount: number;
+  cachedContentTokenCount?: number;
+  cacheTokensDetails?: Array<{
+    modality: string;
+    tokenCount: number;
+  }>;
+  promptTokensDetails?: Array<{
+    modality: string;
+    tokenCount: number;
+  }>;
+}
+
+export interface StreamAIResponseParams {
   apiKey: string;
   modelId: string;
   messages: ConversationMessage[];
@@ -64,7 +62,33 @@ export async function streamAIResponse({
   webSearchEnabled?: boolean; // New parameter type
   abortController?: AbortController; // Add AbortController type
   onSearchResults?: (searchQuery: string, searchResults: any[]) => void; // Add search results callback
-}) {
+  onUsageMetadata?: (usage: UsageMetadata) => void; // Add usage metadata callback
+}
+
+export async function streamAIResponse(params: StreamAIResponseParams): Promise<void> {
+
+  console.log('[AI DEBUG] Starting streamAIResponse with params:', params);
+
+  const {
+  apiKey,
+  modelId,
+  messages,
+  onToken,
+  onToolCall,
+  onToolResult,
+  onToolsComplete,
+  onThinking,
+  onToolConfirmationNeeded,
+  app,
+  thinkingBudget = 0,
+  unifiedToolManager,
+  maxNestedCalls = 3,
+  webSearchEnabled = false,
+  abortController,
+  onSearchResults,
+  onUsageMetadata,
+} = params;
+
   // Check if already aborted before starting
   if (abortController?.signal.aborted) {
     console.log('[AI DEBUG] Request cancelled before starting');
@@ -304,6 +328,18 @@ export async function streamAIResponse({
 
       // Check if there are function calls - they can be in multiple places
       let functionCalls: any[] = [];
+
+
+      console.log('[AI DEBUG] Processing function calls from full response', fullResponse.usageMetadata);
+      // --- USAGE METADATA CALLBACK ---
+      if (fullResponse?.usageMetadata && typeof onUsageMetadata === 'function') {
+        console.log('[AI DEBUG] Calling onUsageMetadata callback');
+        try {
+          onUsageMetadata(fullResponse.usageMetadata);
+        } catch (err) {
+          console.warn('[AI DEBUG] Error in onUsageMetadata callback:', err);
+        }
+      }
 
       // Check root level functionCalls
       if (fullResponse?.functionCalls && fullResponse.functionCalls.length > 0) {

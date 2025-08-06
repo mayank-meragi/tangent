@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import LucidIcon from './LucidIcon';
 import IconButton from './IconButton';
 import ToggleButton from './ToggleButton';
@@ -9,6 +9,7 @@ import { UploadedFile } from '../../FileUploadService';
 import Dropdown from './Dropdown';
 import { DropdownItem } from '../../tools/types';
 import { ConversationTemplate } from '../../tools/types';
+import { UsageMetadata } from 'ai';
 
 type ChatInputContainerProps = {
   selectedFiles: { name: string; content: string; path: string; isCurrentFile?: boolean }[];
@@ -49,6 +50,8 @@ type ChatInputContainerProps = {
   setWebSearchEnabled: (enabled: boolean) => void;
   // Cancellation prop
   onCancelStreaming?: () => void;
+  usageMetadataList?: UsageMetadata[];
+  costInfoList?: { inputCost: number; outputCost: number; totalCost: number }[];
 };
 
 
@@ -90,6 +93,8 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
   webSearchEnabled,
   setWebSearchEnabled,
   onCancelStreaming,
+  usageMetadataList = [],
+  costInfoList = []
 }) => {
   // Convert files to dropdown items for the generic dropdown
   const fileDropdownItems: DropdownItem[] = filteredFiles.map(file => ({
@@ -157,8 +162,12 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
     }
   };
 
+  const [showUsageModal, setShowUsageModal] = useState(false);
+
   return (
-    <div className="tangent-chat-input-main-container">
+    <>
+      <UsageInfoModal open={showUsageModal} usageMetadataList={usageMetadataList} costInfoList={costInfoList} selectedModel={selectedModel} />
+      <div className="tangent-chat-input-main-container" style={{marginTop: 0}}>
       {/* Context Files */}
       {selectedFiles.length > 0 && (
         <div className="tangent-context-files-container">
@@ -261,7 +270,7 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
       )}
 
       {/* Bottom controls */}
-      <div className="tangent-bottom-controls">
+      <div className="tangent-bottom-controls" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
         {/* Model Selection - Bottom Left */}
         <div className="tangent-model-selection">
           <select
@@ -313,7 +322,21 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         </div>
 
         {/* Action Buttons - Bottom Right */}
-        <div className="tangent-action-buttons">
+        <div className="tangent-action-buttons" style={{display: 'flex', alignItems: 'center', gap: 8}}>
+          {/* Info Icon Button for Usage Metadata */}
+          {(() => {
+            console.log('[DEBUG] usageMetadataList:', usageMetadataList);
+            console.log('[DEBUG] costInfoList:', costInfoList);
+            return null;
+          })()}
+          <IconButton
+            icon={<LucidIcon name="info" size={16} />}
+            ariaLabel="Show token usage info"
+            onClick={() => setShowUsageModal(!showUsageModal)}
+            disabled={(!usageMetadataList || usageMetadataList.length === 0) && (!costInfoList || costInfoList.length === 0)}
+            title="Show token usage info"
+            style={{ marginRight: 4, color: 'var(--text-muted)' }}
+          />
           {/* File Upload Button */}
           <FileUploadButton
             onFileSelect={onFileUpload}
@@ -355,7 +378,74 @@ const ChatInputContainer: React.FC<ChatInputContainerProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
-};
+}
 
 export default ChatInputContainer; 
+
+const UsageInfoModal: React.FC<{ 
+  open: boolean; usageMetadataList?: UsageMetadata[]; costInfoList?: { inputCost: number; outputCost: number; totalCost: number }[]; selectedModel?: any }> = ({ open, usageMetadataList = [], costInfoList = [], selectedModel }) => {
+  if (!open) return null;
+
+  return (
+    <div style={{
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      <div style={{
+        background: 'var(--background-secondary)',
+        color: 'var(--text-normal, #e0e0e0)',
+        borderRadius: '8px 8px 0 0',
+        minWidth: 320,
+        maxWidth: 700,
+        padding: '10px',
+        marginLeft: 25,
+        marginRight: 25,
+        boxShadow: '0 4px 32px 0 rgba(0,0,0,0.25)',
+        border: '1px solid var(--background-modifier-border)',
+        position: 'relative',
+        maxHeight: '50vh',
+        overflowY: 'auto',
+      }}>
+        <h5>Token Usage & Cost Per Turn</h5>
+        <div style={{overflowX: 'auto'}}>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+            <thead>
+              <tr style={{borderBottom: '1px solid var(--background-modifier-border)'}}>
+                <th>Turn</th>
+                <th>Inpt tokens</th>
+                <th>Opt tokens</th>
+                <th>Total tokens</th>
+                <th>Input cost (₹)</th>
+                <th>Output cost (₹)</th>
+                <th style={{padding: 6}}>Total cost (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageMetadataList.map((usage, idx) => {
+                const cost = costInfoList[idx];
+                return (
+                  <tr key={idx} style={{borderBottom: '1px solid var(--background-modifier-border)'}}>
+                    <td style={{textAlign: 'center'}}>{idx + 1}</td>
+                    <td style={{textAlign: 'right'}}>{usage?.promptTokenCount ?? '?'}</td>
+                    <td style={{textAlign: 'right'}}>{usage?.candidatesTokenCount ?? '?'}</td>
+                    <td style={{textAlign: 'right'}}>{usage?.totalTokenCount ?? '?'}</td>
+                    <td style={{textAlign: 'right'}}>{cost ? cost.inputCost.toFixed(4) : '?'}</td>
+                    <td style={{textAlign: 'right'}}>{cost ? cost.outputCost.toFixed(4) : '?'}</td>
+                    <td style={{textAlign: 'right'}}>{cost ? cost.totalCost.toFixed(4) : '?'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{marginTop: 16, fontWeight: 500, textAlign: 'right'}}>
+          <span>Total cost so far: <b>₹{costInfoList.reduce((sum, c) => sum + (c?.totalCost || 0), 0).toFixed(4)}</b></span>
+        </div>
+      </div>
+    </div>
+  );
+};
