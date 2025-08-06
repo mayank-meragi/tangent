@@ -958,6 +958,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
         '', // Empty prompt since we're using conversation history
         (tokenOrChunk: any) => {
           if (typeof tokenOrChunk === 'string') {
+            // ...existing code for string chunks...
             if (streamingMessageId) {
               lastStreamingMessage += tokenOrChunk;
               updateMessage(streamingMessageId, { message: lastStreamingMessage });
@@ -977,6 +978,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
             for (const part of parts) {
               if (part.thought === true && part.text) {
+                // Multiple consecutive thinking chunks are allowed
                 if (streamingThinkingId) {
                   lastStreamingThought += part.text;
                   updateMessage(streamingThinkingId, { thought: lastStreamingThought });
@@ -992,7 +994,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                     timestamp: formatTimestamp()
                   });
                 }
-              } else if (part.text) {
+              } else {
                 if (streamingMessageId) {
                   lastStreamingMessage += part.text;
                   updateMessage(streamingMessageId, { message: lastStreamingMessage });
