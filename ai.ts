@@ -303,7 +303,7 @@ export async function streamAIResponse(params: StreamAIResponseParams): Promise<
 
         console.log('[AI DEBUG] Streaming response:', chunk);
         // Stream text content if no function calls
-        if (chunk.candidates && chunk.candidates[0]?.content?.parts && !chunk.functionCalls) {
+        if (chunk.candidates && chunk.candidates[0]?.content?.parts && chunk.candidates[0]?.content?.parts[0]?.text) {
           onToken(chunk);
           hasStreamedContent = true;
         }
