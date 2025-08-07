@@ -978,7 +978,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             const parts = tokenOrChunk.candidates[0]?.content?.parts || [];
             for (const part of parts) {
               if (part.thought === true && part.text) {
-                // Multiple consecutive thinking chunks are allowed
+                console.log('[Message Debug]:', streamingThinkingId, ' Got thought:', part.thought, " with text:", part.text);
                 if (streamingThinkingId) {
                   lastStreamingThought += part.text;
                   updateMessage(streamingThinkingId, { thought: lastStreamingThought });
@@ -995,6 +995,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
                   });
                 }
               } else {
+                console.log('[Message Debug]:', streamingMessageId, ' Got message part:', part.text);
                 if (streamingMessageId) {
                   lastStreamingMessage += part.text;
                   updateMessage(streamingMessageId, { message: lastStreamingMessage });
