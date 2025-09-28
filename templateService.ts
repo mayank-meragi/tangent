@@ -8,7 +8,7 @@ import {
   TemplateSettings
 } from './tools/types';
 import { TemplateSearchEngine } from './tools/templateSearchEngine';
-import * as path from 'path'; // Added for path.basename
+// Note: Avoid Node 'path' module; use string operations instead
 
 // Extend globalThis to include bundled templates
 declare global {
@@ -138,8 +138,8 @@ export class TemplateService {
 
     for (const [relativePath, content] of Object.entries(bundledTemplates)) {
       try {
-        // Extract filename from relative path
-        const fileName = path.basename(relativePath);
+        // Extract filename from relative path without using Node 'path'
+        const fileName = relativePath.replace(/^.*[\\\/]/, '');
         const systemTemplatePath = `${this.templateFolder}/system/${fileName}`;
         
         // Check if template already exists (preserve user customizations)

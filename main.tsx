@@ -3,12 +3,10 @@ import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
 import { streamAIResponse, UsageMetadata } from './ai';
-import { MCPServerConfig, MCPServerManager, UnifiedToolManager } from './mcp';
-import { getPreconfiguredServers, getAvailablePreconfiguredServers, getServerInstallationInstructions, getCommandDiagnosticInfo, checkMemoryFileAccess, checkGoogleCalendarCredentials } from './mcp/preconfiguredServers';
+import { UnifiedToolManager } from './unifiedToolManager';
 import { getObsidianTasksGlobalFilter, convertTasksFilterToDataviewConditions } from './tools/dataviewTasks';
 import { TemplateService } from './templateService';
 import { createDietLogCommand, createTagSuggestCommand } from './commands';
-import { on } from 'events';
 
 // Remember to rename these classes and interfaces!
 
@@ -16,34 +14,15 @@ interface MyPluginSettings {
 	mySetting: string;
 	geminiApiKey?: string;
 	webSearchEnabled: boolean;
-	mcpEnabled: boolean;
-	mcpServers: MCPServerConfig[];
-	mcpGlobalEnv: Record<string, string>;
-	mcpSettings: {
-		defaultTimeout: number;
-		maxRetryAttempts: number;
-		enableLogging: boolean;
-		logLevel: 'debug' | 'info' | 'warn' | 'error';
-	};
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default',
-	webSearchEnabled: false,
-	mcpEnabled: false,
-	mcpServers: [],
-	mcpGlobalEnv: {},
-	mcpSettings: {
-		defaultTimeout: 30,
-		maxRetryAttempts: 3,
-		enableLogging: true,
-		logLevel: 'info'
-	}
+	webSearchEnabled: false
 };
 
 export default class MyPlugin extends Plugin {
 	settings!: MyPluginSettings;
-	public mcpServerManager!: MCPServerManager;
 	public unifiedToolManager!: UnifiedToolManager;
 	public templateService!: TemplateService;
 	public chatPanelRoot: Root | null = null;
@@ -57,11 +36,9 @@ export default class MyPlugin extends Plugin {
 			return new ChatPanelView(leaf, this);
 		});
 
-		// Make plugin instance globally accessible for ChatPanel component
-		(window as any).tangentPluginInstance = this;
 
-		// Initialize MCP managers
-		this.initializeMCP();
+		// Initialize tool manager (built-in tools only)
+		this.unifiedToolManager = new UnifiedToolManager(this.app);
 
 		// Initialize template service
 		this.templateService = new TemplateService(this.app);
@@ -98,14 +75,7 @@ export default class MyPlugin extends Plugin {
 			}
 		});
 
-		// Add MCP server manager command
-		this.addCommand({
-			id: 'open-mcp-server-manager',
-			name: 'Open MCP Server Manager',
-			callback: () => {
-				new MCPServerManagerModal(this.app, this).open();
-			}
-		});
+
 
 		// Add debug command for Tasks plugin integration
 		this.addCommand({
@@ -179,10 +149,7 @@ export default class MyPlugin extends Plugin {
 			this.templateService.cleanup();
 		}
 
-		// Cleanup MCP managers
-		if (this.mcpServerManager) {
-			this.mcpServerManager.cleanup();
-		}
+
 
 		// Cleanup React root
 		if (this.chatPanelRoot) {
@@ -196,8 +163,7 @@ export default class MyPlugin extends Plugin {
 			this.app.workspace.detachLeavesOfType('tangent-chat');
 		});
 
-		// Clean up global reference
-		delete (window as any).tangentPluginInstance;
+		// Removed global plugin reference
 	}
 
 	async loadSettings() {
@@ -208,29 +174,7 @@ export default class MyPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	/**
-	 * Initialize MCP managers
-	 */
-	private async initializeMCP(): Promise<void> {
-		// Initialize unified tool manager
-		this.unifiedToolManager = new UnifiedToolManager(
-			this.app,
-			undefined // We'll set the client after MCPServerManager is created
-		);
-
-		// Initialize MCP server manager with settings change callback and unified tool manager
-		this.mcpServerManager = new MCPServerManager((servers) => {
-			console.log('Server manager callback triggered with servers:', servers);
-			this.settings.mcpServers = servers;
-			this.saveSettings();
-		}, this.unifiedToolManager);
-
-		// Set the client for the unified tool manager
-		this.unifiedToolManager.mcpClient = this.mcpServerManager.getClient();
-
-		// Load server configurations from settings
-		await this.mcpServerManager.loadServers(this.settings.mcpServers);
-	}
+ 
 
 	openChatPanel() {
 		// Check if chat panel is already open
@@ -433,6 +377,7 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
+/*
 class MCPServerManagerModal extends Modal {
 	private preconfiguredServers: MCPServerConfig[] = [];
 
@@ -883,6 +828,7 @@ class MCPServerManagerModal extends Modal {
 		modal.open();
 	}
 }
+*/
 
 class GeminiSettingTab extends PluginSettingTab {
 	plugin: MyPlugin;
@@ -922,6 +868,7 @@ class GeminiSettingTab extends PluginSettingTab {
 			);
 
 		// MCP Settings Section
+/*
 		containerEl.createEl('h2', { text: 'Model Context Protocol (MCP)' });
 
 		new Setting(containerEl)
@@ -1009,6 +956,7 @@ class GeminiSettingTab extends PluginSettingTab {
 					})
 				);
 		}
+*/
 	}
 }
 

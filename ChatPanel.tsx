@@ -214,7 +214,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
   // Add AbortController ref for cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
   // State for which view is active
-  const [activeView, setActiveView] = useState<'chat' | 'history' | 'servers'>('chat');
+  const [activeView, setActiveView] = useState<'chat' | 'history'>('chat');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Usage metadata state
   const [usageMetadata, setUsageMetadata] = React.useState<any | null>(null);
@@ -1374,12 +1374,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
     };
   }, []);
 
-  // MCP Server Manager props (get from plugin context)
-  const plugin = (window as any).tangentPluginInstance; // You may need to set this in main.tsx for access
-  const mcpServerManager = plugin?.mcpServerManager;
-
-  // Get fresh data from server manager
-  const getMCPServerStatuses = () => mcpServerManager?.getAllServerStatuses() || [];
+  // MCP Server Manager removed
 
   const handleNewChat = () => {
     // Cancel any ongoing streaming
@@ -1431,12 +1426,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
             title="Refresh"
             onClick={handleNewChat}
           />
-          <IconButton
-            icon={<LucidIcon name="server" size={18} />}
-            ariaLabel="Servers"
-            title="Servers"
-            onClick={() => setActiveView('servers')}
-          />
+          {/* Servers view removed */}
         </div>
       </div>
 
@@ -1596,21 +1586,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({ geminiApiKey, streamAIResp
           onClose={() => setActiveView('chat')}
         />
       )}
-      {activeView === 'servers' && (
-        <div className="tangent-servers-view">
-          <h3>MCP Servers</h3>
-          <p>Server management has been simplified. Use the settings to configure MCP servers.</p>
-          <p>Current server statuses:</p>
-          <ul>
-            {getMCPServerStatuses().map((status: any) => (
-              <li key={status.name}>
-                {status.name}: {status.status}
-                {status.lastError && <span className="tangent-server-error"> - {status.lastError}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Servers view removed */}
     </div>
   );
 };

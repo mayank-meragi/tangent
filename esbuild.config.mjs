@@ -1,8 +1,4 @@
 import esbuild from "esbuild";
-import process from "process";
-import builtins from "builtin-modules";
-import fs from "fs";
-import path from "path";
 
 const banner =
 `/*
@@ -13,58 +9,9 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
-// Bundle system templates into the plugin
-function bundleSystemTemplates() {
-  const templatesDir = path.join(process.cwd(), 'templates');
-  const bundledTemplates = {};
-  
-  if (fs.existsSync(templatesDir)) {
-    const templateFiles = fs.readdirSync(templatesDir)
-      .filter(file => file.endsWith('.md'))
-      .sort();
-    
-    for (const file of templateFiles) {
-      const filePath = path.join(templatesDir, file);
-      const content = fs.readFileSync(filePath, 'utf8');
-      const relativePath = path.relative(process.cwd(), filePath);
-      bundledTemplates[relativePath] = content;
-    }
-    
-    console.log(`📦 Bundled ${Object.keys(bundledTemplates).length} system templates`);
-  } else {
-    console.log('⚠️  No templates directory found, skipping template bundling');
-  }
-  
-  return bundledTemplates;
-}
-
-// Bundle system personas into the plugin
-function bundleSystemPersonas() {
-  const personasDir = path.join(process.cwd(), 'tangent/personas');
-  const bundledPersonas = {};
-  
-  if (fs.existsSync(personasDir)) {
-    const personaFiles = fs.readdirSync(personasDir)
-      .filter(file => file.endsWith('.md'))
-      .sort();
-    
-    for (const file of personaFiles) {
-      const filePath = path.join(personasDir, file);
-      const content = fs.readFileSync(filePath, 'utf8');
-      const relativePath = path.relative(process.cwd(), filePath);
-      bundledPersonas[relativePath] = content;
-    }
-    
-    console.log(`📦 Bundled ${Object.keys(bundledPersonas).length} system personas`);
-  } else {
-    console.log('⚠️  No personas directory found, skipping persona bundling');
-  }
-  
-  return bundledPersonas;
-}
-
-const systemTemplates = bundleSystemTemplates();
-const systemPersonas = bundleSystemPersonas();
+// Disable filesystem bundling: inject empty objects for templates/personas
+const systemTemplates = {};
+const systemPersonas = {};
 
 const context = await esbuild.context({
 	banner: {
@@ -72,7 +19,7 @@ const context = await esbuild.context({
 	},
 	entryPoints: ["main.tsx"],
 	bundle: true,
-	platform: "node",
+	platform: "browser",
 	external: [
 		"obsidian",
 		"electron",
@@ -86,8 +33,7 @@ const context = await esbuild.context({
 		"@codemirror/view",
 		"@lezer/common",
 		"@lezer/highlight",
-		"@lezer/lr",
-		...builtins,
+		"@lezer/lr"
 	],
 	format: "cjs",
 	target: "es2018",

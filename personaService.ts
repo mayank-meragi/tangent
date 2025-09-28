@@ -1,6 +1,6 @@
 import { App, TFile, TFolder, EventRef } from 'obsidian';
 import { Persona, FileLink } from './tools/types';
-import * as path from 'path';
+// Note: Avoid Node 'path' module; use string operations instead
 
 // Extend globalThis to include bundled personas
 declare global {
@@ -127,8 +127,8 @@ export class PersonaService {
 
     for (const [relativePath, content] of Object.entries(bundledPersonas)) {
       try {
-        // Extract filename from relative path
-        const fileName = path.basename(relativePath);
+        // Extract filename from relative path without using Node 'path'
+        const fileName = relativePath.replace(/^.*[\\\/]/, '');
         const systemPersonaPath = `${this.personaFolder}/system/${fileName}`;
 
         // Check if persona already exists (preserve user customizations)
