@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, ItemView, Platform } from 'obsidian';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import ChatPanelWithProvider from './ChatPanel';
@@ -185,14 +185,16 @@ export default class MyPlugin extends Plugin {
 		}
 
 		// Create new leaf
-		this.chatPanelLeaf = this.app.workspace.getRightLeaf(false);
-		if (this.chatPanelLeaf) {
-			this.chatPanelLeaf.setViewState({
-				type: 'tangent-chat',
-				active: true,
-			});
+		if (Platform.isMobile) {
+			// On mobile, open as a new tab in the main panel
+			this.chatPanelLeaf = this.app.workspace.getLeaf(true);
+		} else {
+			// On desktop, open in the right side panel
+			this.chatPanelLeaf = this.app.workspace.getRightLeaf(false);
+		}
 
-			// Activate the leaf
+		if (this.chatPanelLeaf) {
+			this.chatPanelLeaf.setViewState({ type: 'tangent-chat', active: true });
 			this.app.workspace.revealLeaf(this.chatPanelLeaf);
 		}
 	}
